@@ -192,8 +192,51 @@ export const usePinata =()=>{
             if(animationUrl) metadata.animation_url = animationUrl;
             if(backgroundColor) metadata.background_color = backgroundColor;
 
+            const metaDataUpload =await uploadJSONtoIpfs(metadata,{
+                name:`${name}_metaData`,
+                keyValues:{
+                    type:`nft_metadata`,
+                    nft_name:name
+                }
+            });
+
+            if(!metaDataUpload.success){
+                throw new Error(`Failed to upload metadata: ${metaDataUpload.error}`);
+            }
+
+            return{
+                success:true,
+                imageHash:imageUpload.ipfsHash,
+                imageUrl:imageUpload.url,
+                metadataHash:metaDataUpload.ipfsHash,
+                metadataUrl:metaDataUpload.url,
+                metadata
+            };
+
         } catch (error) {
-            
+            console.error(`failed to upload nft-metadata ${error}`);
+            return{
+                success:false,
+                error:error.message
+            };
         }
-    })
+    },[uploadToIpfs,uploadJSONtoIpfs]);
+
+    const getFromIpfs = useCallback(async(ipfsHash)=>{
+        try {
+            const response = await axios.get(`${PINATA_GATEWAY_URL}${ipfsHash}`);
+            return{
+                success:true,
+                data:response.data
+            }
+        } catch (error) {
+            console.error('Error fetching from IPFS:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    },[]);
+
+    
 }
