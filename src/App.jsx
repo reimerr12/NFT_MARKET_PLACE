@@ -1,12 +1,13 @@
 import { useState } from 'react'
+import Web3Provider from './providers/Web3Provider'
 import './App.css'
 
 function App() {
 
   return (
-    <div>
+    <Web3Provider>
       
-    </div>
+    </Web3Provider>
   )
 }
 
