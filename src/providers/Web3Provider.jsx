@@ -45,7 +45,7 @@ export const Web3Provider = ({children}) =>{
     const[signer,setSigner] = useState(null);
     const[chainId,setChainId] = useState(null);
     const[isConnected,setIsConnected] = useState(false);
-    const[isConnectiong,setIsConnecting] = useState(false);
+    const[isConnecting,setIsConnecting] = useState(false);
     const[balance,setBalance] = useState('0');
     const [contractOwner, setContractOwner] = useState(null);
     const [contract, setContract] = useState(null);
