@@ -261,6 +261,7 @@ export const Web3Provider = ({children}) =>{
     
     // Utilities
     formatAddress,
+    formatBalanceForDisplay,
     formatBalance,
     getBalance,
     updateBalance,
