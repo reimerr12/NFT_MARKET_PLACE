@@ -116,7 +116,7 @@ export const Web3Provider = ({children}) =>{
     const updateBalance = useCallback(async()=>{
         if(account && provider){
             try {
-                const newBalance = await provider.getBalance(account);
+                const newBalance = await provider.getBalance(account).toString();
                 setBalance(newBalance);
             } catch (error) {
                 console.error('error updating balance',error);
@@ -148,7 +148,7 @@ export const Web3Provider = ({children}) =>{
             const web3Signer = web3Provider.getSigner();
             const network = await web3Provider.getNetwork();
 
-            setAccount(account[0]);
+            setAccount(accounts[0]);
             setProvider(web3Provider);
             setSigner(web3Signer);
             setChainId(network.chainId);
