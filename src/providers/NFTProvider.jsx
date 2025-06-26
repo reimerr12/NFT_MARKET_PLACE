@@ -98,4 +98,18 @@ export const useNFT = ()=>{
 
 
     //buying an nft
+    const buyNFT = useCallback(async(tokenId)=>{
+        try {
+            setLoading(true);
+            setError(null);
+
+            const {marketplaceContract} = getContracts();
+
+            
+
+
+        } catch (error) {
+            
+        }
+    })
 }

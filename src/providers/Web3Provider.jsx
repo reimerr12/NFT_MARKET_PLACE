@@ -108,8 +108,8 @@ export const Web3Provider = ({children}) =>{
                 } catch (secondError) {
                     console.error('Error getting contract owner with getOwner:', secondError);
                 }
-            }
-        }, [provider, contractAddress, contractABI]);
+        }
+    }, [provider, contractAddress, contractABI]);
 
 
     //update balance
