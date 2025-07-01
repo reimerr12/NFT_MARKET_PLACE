@@ -13,103 +13,131 @@ export const useNFT = ()=>{
 
     //get contract instances
     const getContracts = useCallback(()=>{
-        if(!signer) throw new Error("please sign in with a wallet");
-        
-        const imageNFTcontract = new ethers.Contract(IMAGE_NFT_ADDRESS,IMAGE_NFT_ABI,signer);
-        const marketplaceContract = new ethers.Contract(NFT_MARKETPLACE_ADDRESS,NFT_MARKETPLACE_ABI,signer);
+        if(!signer) throw new Error ("Please sign in with a wallet");
 
-        return{ imageNFTcontract,marketplaceContract};
+        const imageNftContract = new ethers.Contract(IMAGE_NFT_ADDRESS,IMAGE_NFT_ABI,signer);
+        const marketPLaceContract = new ethers.Contract(NFT_MARKETPLACE_ADDRESS,NFT_MARKETPLACE_ABI,signer);
+
+        return {imageNftContract , marketPLaceContract};
     },[signer]);
 
-    //mint NFT
+
+    const getReadOnlyContracts = useCallback(()=>{
+        if(!provider) throw new Error("please give a balid provider");
+
+        const imageNftContract = new ethers.Contract(IMAGE_NFT_ADDRESS,IMAGE_NFT_ABI,provider);
+        const marketPLaceContract = new ethers.Contract(NFT_MARKETPLACE_ADDRESS,NFT_MARKETPLACE_ABI,provider);
+
+        return {imageNftContract , marketPLaceContract};
+    },[provider]);
+
+    //mint an nft
     const mintNFT = useCallback(async(imageFile,metadata,royaltyBps = 250)=>{
         try {
             setLoading(true);
             setError(null);
 
             if(!imageFile) throw new Error("please provide an image file");
-            if(!metadata.name) throw new Error("please provide a name");
-            if(royaltyBps > 500) throw new Error("royalty cannot exceed 5%");
+            if(!metadata) throw new Error("please provide a valid metadata");
+            if(royaltyBps > 500) throw new Error("Royalty cannot exceed 5%");
+
+            //validate image file
+            pinataService.validateImageFile(imageFile);
 
             //upload to pinata
-            console.log('uploading to ipfs');
+            console.log('upload to ipfs....');
             const uploadResult = await pinataService.uploadNFT(imageFile,metadata);
 
             //minting nft
             console.log("minting nft");
-            const {imageNFTcontract} = getContracts();
+            const{imageNftContract} = getContracts();
 
-            const tx = await imageNFTcontract.mintNft(uploadResult.metadata.tokenURI,royaltyBps);
-
+            const tx = await imageNftContract.mintNFT(uploadResult.metadata.tokenURI,royaltyBps);
             const receipt = await tx.wait();
 
-            //extract tokenId from events
-            const mintEvent = receipt.events?.find( e => e.event === "NFTminted");
+            //extract nft tokenId from events
+            const mintEvent = receipt.events?.find(e => e.event === "NFTminted");
             const tokenId = mintEvent?.args?.tokenId?.toString();
 
-            return {
-                success: true,
+            return{
+                success:true,
                 tokenId,
-                transactionHash: receipt.transactionHash,
-                ipfsData: uploadResult,
-                tokenURI: uploadResult.metadata.tokenURI,
+                ipfsData:uploadResult,
+                tokenURI:uploadResult.metadata.tokenURI
             }
-
-        }catch(error){
-            const errorMessage = error.message || 'minting nft failed';
+        } catch (error) {
+            const errorMessage = error.message || 'minting NFT failed';
             setError(errorMessage);
             throw new Error(errorMessage);
-        }finally{
+        } finally {
             setLoading(false);
         }
     },[getContracts]);
 
-
-    //list nft for sale
-    const listForSale = useCallback(async(tokenId, priceInEth)=>{
+    //list for sale
+    const listForSale = useCallback(async(tokenId,priceInEth)=>{
         try {
             setLoading(true);
             setError(null);
 
-            const {marketplaceContract} = getContracts();   
+            const {marketPLaceContract} = getContracts();
             const priceInWei = ethers.utils.parseEther(priceInEth.toString());
 
+            //listing for sale
             console.log("listing for sale");
+            const tx = await marketPLaceContract.listForSale(tokenId,priceInWei);
+            const receipt = await tx.wait();
 
-            const tx = await marketplaceContract.listForSale(tokenId,priceInWei);
+            return{
+                success:true,
+                tokenId,
+                transactionHash: receipt.transactionHash,
+                price:priceInEth,
+            }
+        } catch (error) {
+            const errorMessage = error.message || "failed to list for sale";
+            setError(errorMessage);
+            throw new Error(errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    },[getContracts]);
+
+    //buy nft
+    const buyNft = useCallback(async(tokenId)=>{
+        try {
+            setLoading(true);
+            setError(null);
+
+            const {marketPLaceContract} = getContracts();
+
+            
+            const listing = await marketPLaceContract.listings(tokenId);
+            if(!listing.isActive || listing.isAuctioned){
+                throw new Error("NFT is not available for direct purchase");
+            }
+
+            //buying the nft
+            console.log("buying the nft");
+            const tx = await marketPLaceContract.buyNow(tokenId,{
+                value:listing.price
+            });
 
             const receipt = await tx.wait();
 
             return{
                 success:true,
-                transactionHash:receipt.transactionHash,
                 tokenId,
-                price:priceInEth,
+                transactionHash:receipt.transactionHash,
+                price:ethers.utils.parseEther(listing.price),
             }
 
         } catch (error) {
-            const errorMessage = error.message || 'listing nft for sale failed';
+            const errorMessage = error.message || "failed to buy nft";
             setError(errorMessage);
             throw new Error(errorMessage);
-        }finally{
+        } finally {
             setLoading(false);
         }
     },[getContracts]);
-
-
-    //buying an nft
-    const buyNFT = useCallback(async(tokenId)=>{
-        try {
-            setLoading(true);
-            setError(null);
-
-            const {marketplaceContract} = getContracts();
-
-            
-
-
-        } catch (error) {
-            
-        }
-    })
 }
