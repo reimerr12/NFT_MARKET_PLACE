@@ -68,7 +68,7 @@ export const Web3Provider = ({children}) =>{
     const formatBalanceForDisplay = useCallback((balanceWei,decimals=4)=>{
         if(!balanceWei) return ' ';
         try {
-            parseFloat(ethers.utils.formatEther(balanceWei)).toFixed(decimals);
+            return parseFloat(ethers.utils.formatEther(balanceWei)).toFixed(decimals);
         } catch (error) {
             console.error("error formating balance",error);
             return '0';
@@ -77,15 +77,28 @@ export const Web3Provider = ({children}) =>{
     
     //get balance
     const getBalance = useCallback(async(address = account)=>{
-        if(!provider || !address) return 'please give a valid provider or address';
+        if(!provider || !address) {
+            throw new Error('Please provide a valid provider and address');
+        }
         try {
             const balance = await provider.getBalance(address);
             return balance.toString();
         } catch (error) {
-            console.error("there was an error in getting the balance",error);
-            return '0'
+            console.error("Error getting balance",error);
+            throw error;
         }
     },[provider,account]);
+
+    //format balance
+    const formatBalance = useCallback((balanceWei, decimals = 4) => {
+        if (!balanceWei) return '0';
+        try {
+            return parseFloat(ethers.formatEther(balanceWei)).toFixed(decimals);
+        } catch (error) {
+            console.error("Error formatting balance", error);
+            return '0';
+        }
+    }, []);
 
     const getContractOwner = useCallback(async()=>{
         if(!provider || !contractAddress ||!contractABI) return 'cound not get the owner';
@@ -122,16 +135,15 @@ export const Web3Provider = ({children}) =>{
                 console.error('error updating balance',error);
             }
         }
-    },[account,provider,getBalance]);
+    },[account,provider]);
 
     //connect wallet
     const connectWallet = useCallback(async ()=>{
-        if(!isMetaMaskInstalled){
-            throw new Error("please install metamask");
+        if(!isMetaMaskInstalled()){
+            throw new Error("Please install MetaMask");
         }
 
         try {
-
             setIsConnecting(true);
 
             //req account access
@@ -140,28 +152,28 @@ export const Web3Provider = ({children}) =>{
             });
 
             if(accounts.length === 0){
-                throw new Error("no account found");
+                throw new Error("No account found");
             }
 
-            //create provider and signer
-            const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-            const web3Signer = web3Provider.getSigner();
+            //create provider and signer - Updated for ethers v6
+            const web3Provider = new ethers.BrowserProvider(window.ethereum);
+            const web3Signer = await web3Provider.getSigner();
             const network = await web3Provider.getNetwork();
 
             setAccount(accounts[0]);
             setProvider(web3Provider);
             setSigner(web3Signer);
-            setChainId(network.chainId);
+            setChainId(Number(network.chainId));
             setIsConnected(true);
 
-            console.log('wallet connected',{
-                account:account[0],
-                chainId:network.chainId,
+            console.log('Wallet connected',{
+                account:accounts[0],
+                chainId:Number(network.chainId),
                 networkName:network.name,
             });
 
         } catch (error) {
-            console.error("error connection wallet",error);
+            console.error("Error connecting wallet",error);
             throw error;
         }finally{
             setIsConnecting(false);
@@ -208,8 +220,8 @@ export const Web3Provider = ({children}) =>{
             window.ethereum.on('chainChanged',handleChainChanged);
 
             return ()=>{
-                window.etherem.removeListener('accountsChanged',handleAccountsChanged);
-                window.etherem.removeListener('chainChanged',handleChainChanged);
+                window.ethereum.removeListener('accountsChanged',handleAccountsChanged);
+                window.ethereum.removeListener('chainChanged',handleChainChanged);
             }
         }
     },[handleAccountsChanged,handleChainChanged]);
@@ -227,10 +239,11 @@ export const Web3Provider = ({children}) =>{
 
     //use effect for balance updates
     useEffect(()=>{
-        if(isConnected && account);
-        const interval = setInterval(updateBalance,30000);
-        return () => clearInterval(interval);
-    },isConnected,account,updateBalance);
+        if(isConnected && account){
+            const interval = setInterval(updateBalance,30000);
+            return () => clearInterval(interval);
+        }
+    },[isConnected,account,updateBalance]);
 
 
   // Context value

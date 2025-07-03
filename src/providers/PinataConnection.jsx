@@ -9,21 +9,20 @@ const PINATA_GATEWAY_URL = 'https://gateway.pinata.cloud/ipfs';
 
 class PinataService{
     constructor(){
-        
-        if(!PINATA_API_KEY || !PINATA_SECRET_API_KEY || !PINATA_JWT){
-            console.warn("Pinata environment variables not properly configured");
-        }
-
-        //axios instance
-        this.api = axios.create({
-            baseURL : PINATA_BASE_URL,
-            headers:{
-                'pinata_api_key':PINATA_API_KEY,
-                "pinata_secret_api_key":PINATA_SECRET_API_KEY,
-                'Authorization':`Bearer ${PINATA_JWT}`
-            }
-        });
+    if(!PINATA_API_KEY || !PINATA_SECRET_API_KEY || !PINATA_JWT){
+        throw new Error("Pinata environment variables are required. Please check REACT_APP_PINATA_API_KEY, REACT_APP_PINATA_SECRET_API_KEY, and REACT_APP_PINATA_JWT");
     }
+
+    //axios instance
+    this.api = axios.create({
+        baseURL : PINATA_BASE_URL,
+        headers:{
+            'pinata_api_key':PINATA_API_KEY,
+            "pinata_secret_api_key":PINATA_SECRET_API_KEY,
+            'Authorization':`Bearer ${PINATA_JWT}`
+        }
+    });
+}
 
     //test authentication
     async testAuthentication(){
@@ -221,11 +220,11 @@ class PinataService{
     //helps to validate image size
     validateImageFile(file){
         if(!file){
-            throw new Error('no file provided');
+            throw new Error('No file provided');
         }
 
         if(!(file instanceof File)){
-            throw new Error("please provide a valid file");
+            throw new Error("Please provide a valid file");
         }
 
         const maxSize = 10 * 1024 * 1024;
@@ -233,7 +232,9 @@ class PinataService{
             throw new Error(`Image size exceeds 10MB limit. Current size: ${this.formatFileSize(file.size)}`);
         }
 
-        if(!file.type || !file.type.startsWith('image/')){
+        // More robust MIME type checking
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+        if(!file.type || !allowedTypes.includes(file.type.toLowerCase())){
             throw new Error(`Unsupported image format: ${file.type}. Supported formats: JPEG, PNG, GIF, WebP, SVG`);
         }
 
