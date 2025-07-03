@@ -6,7 +6,7 @@ import { useWeb3 } from "../providers/Web3Provider";
 
 const Navbar = () =>{
     const {isConnected,account,connectWallet,disconnectWallet,formatAddress} = useWeb3();
-    
+    const [isProfileOpen , setIsProfileOpen] = useState(false);
 }
 
 export default Navbar;
