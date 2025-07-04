@@ -156,8 +156,8 @@ export const Web3Provider = ({children}) =>{
             }
 
             //create provider and signer - Updated for ethers v6
-            const web3Provider = new ethers.BrowserProvider(window.ethereum);
-            const web3Signer = await web3Provider.getSigner();
+            const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+            const web3Signer = web3Provider.getSigner();
             const network = await web3Provider.getNetwork();
 
             setAccount(accounts[0]);

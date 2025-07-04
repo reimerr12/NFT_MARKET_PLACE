@@ -85,22 +85,25 @@ export const useNFT = ()=>{
     },[getContracts]);
 
     //list for sale
-    const listForSale = useCallback(async(tokenId,priceInEth)=>{
+    const listForSale = useCallback(async(tokenId,priceInWei)=>{
         
         if (!account) throw new Error("Please connect your wallet");
         try {
             setLoading(true);
             setError(null);
 
-            if (priceInEth <= 0) throw new Error("Price must be positive");
+            if (priceInWei.isZero() || priceInWei.lt(ethers.constants.Zero)) {
+                throw new Error("Price must be positive");
+            }
 
             const {marketPLaceContract} = getContracts();
-            const priceInWei = ethers.utils.parseEther(priceInEth.toString());
 
             //listing for sale
             console.log("listing for sale");
             const tx = await marketPLaceContract.listForSale(tokenId,priceInWei);
             const receipt = await tx.wait();
+
+            const priceInEth = ethers.utils.formatEther(priceInWei)
 
             return{
                 success:true,
