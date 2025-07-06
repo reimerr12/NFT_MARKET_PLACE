@@ -192,14 +192,17 @@ export const useNFT = ()=>{
     },[getContracts]);
 
     //place bid 
-    const placeBid = useCallback(async(tokenId,bidAmountInEth)=>{
+    const placeBid = useCallback(async(tokenId,bidAmountInWei)=>{
         if (!account) throw new Error("Please connect your wallet");
         try {
             setLoading(true);
             setError(null);
 
+            if (bidAmountInWei.isZero() || bidAmountInWei.lt(ethers.constants.Zero)) {
+                throw new Error("Price must be positive");
+            }
+
             const {marketPLaceContract} = getContracts();
-            const bidAmountInWei = ethers.utils.parseEther(bidAmountInEth.toString());
 
             console.log("placing bid");
             const tx = await marketPLaceContract.placeBid(tokenId,{
@@ -208,6 +211,7 @@ export const useNFT = ()=>{
 
             const receipt = await tx.wait();
 
+            const bidAmountInEth = ethers.utils.formatEther(bidAmountInWei);
             return{
                 success:true,
                 tokenId,
