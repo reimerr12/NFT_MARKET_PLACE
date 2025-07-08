@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { X, HandCoins, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { formatEther , parseEther } from "ethers/lib/utils";
+import { BigNumber } from "ethers";
 
 const placeBidModal=({isOpen,onClose,tokenId,onPlaceBid,currentHighestBid,txLoading})=>{
     const[bidAmount,setBidAmount] = useState('');
     const[status,setStatus] = useState(null);
+
+    useEffect(() => {
+        if (!isOpen) {
+        resetForm();
+        }
+    }, [isOpen]);
 
     const resetForm = ()=>{
         setBidAmount('');
@@ -24,13 +31,16 @@ const placeBidModal=({isOpen,onClose,tokenId,onPlaceBid,currentHighestBid,txLoad
                 throw new Error("please enter a valid bid amount.");
             }
             const bidAmountInWei = parseEther(bidAmount);
-            if(currentHighestBid && bidAmount <= BigInt(currentHighestBid)){
-                throw new Error("ypur bid. must be higher than the previous bid");
+
+            const currentHighestBidBigNumber = currentHighestBid ? BigNumber.from(currentHighestBid) : BigNumber.from(0);
+
+            if(bidAmountInWei.lte(currentHighestBidBigNumber)){
+                throw new Error(`Your bid must be higher than the current highest bid (${formatEther(currentHighestBidBigNumber)} ETH).`);
             }
 
             await onPlaceBid(tokenId,bidAmountInWei);
             setStatus('success');
-            setTimeout(handleClose,2000)
+            setTimeout(handleClose,2000);
         } catch (error) {
             console.error("there was an error placing a bid",error);
             setStatus('failed');
@@ -107,3 +117,5 @@ const placeBidModal=({isOpen,onClose,tokenId,onPlaceBid,currentHighestBid,txLoad
         </div>
     );
 }
+
+export default placeBidModal;

@@ -160,7 +160,7 @@ export const useNFT = ()=>{
     },[getContracts]);
 
     //create auction
-    const createAuction = useCallback(async(tokenId,reservedPriceInEth,durationInHours)=>{
+    const createAuction = useCallback(async(tokenId,reservedPriceInWei,durationInHours)=>{
         if (!account) throw new Error("Please connect your wallet");
         try {
             setLoading(true);
@@ -168,12 +168,13 @@ export const useNFT = ()=>{
             if (durationInHours <= 0) throw new Error("Duration must be positive");
 
             const {marketPLaceContract} = getContracts();
-            const reservedPriceInWei = ethers.utils.parseEther(reservedPriceInEth.toString());
             const durationInSeconds = durationInHours * 3600;
 
             console.log('creating auction...');
             const tx = await marketPLaceContract.createAuction(tokenId,reservedPriceInWei,durationInSeconds);
             const receipt = await tx.wait();
+
+            const reservedPriceInEth = ethers.utils.formatEther(reservedPriceInWei);
 
             return{
                 success:true,
