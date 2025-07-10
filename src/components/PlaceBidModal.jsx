@@ -3,7 +3,7 @@ import { X, HandCoins, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { formatEther , parseEther } from "ethers/lib/utils";
 import { BigNumber } from "ethers";
 
-const placeBidModal=({isOpen,onClose,tokenId,onPlaceBid,currentHighestBid,txLoading})=>{
+const PlaceBidModal=({isOpen,onClose,tokenId,onPlaceBid,currentHighestBid,txLoading})=>{
     const[bidAmount,setBidAmount] = useState('');
     const[status,setStatus] = useState(null);
 
@@ -117,5 +117,4 @@ const placeBidModal=({isOpen,onClose,tokenId,onPlaceBid,currentHighestBid,txLoad
         </div>
     );
 }
-
-export default placeBidModal;
+export default PlaceBidModal;

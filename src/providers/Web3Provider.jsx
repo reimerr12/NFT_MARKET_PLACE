@@ -293,7 +293,7 @@ export const useWeb3 = ()=>{
     if(!context){
         throw new Error('please provide a valid context');
     }
-
+    
     return context;
 }
 
@@ -307,5 +307,4 @@ export const withWeb3 = (Component)=>{
         return <Component {...props} />
     }
 }
-
 export default Web3Provider;

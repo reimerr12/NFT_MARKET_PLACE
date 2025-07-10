@@ -1,9 +1,7 @@
 import axios from "axios";
-
 const PINATA_API_KEY = import.meta.env.REACT_APP_PINATA_API_KEY;
 const PINATA_SECRET_API_KEY = import.meta.env.REACT_APP_PINATA_SECRET_API_KEY;
 const PINATA_JWT = import.meta.env.REACT_APP_PINATA_JWT;
-
 const PINATA_BASE_URL = 'https://api.pinata.cloud';
 const PINATA_GATEWAY_URL = 'https://gateway.pinata.cloud/ipfs';
 
