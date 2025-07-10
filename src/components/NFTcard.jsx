@@ -8,7 +8,7 @@ import PlaceBidModal from "./PlaceBidModal";
 
 const NFTCard = ({nft,onCreateAuction,onListForSale,onBuyNft,onPlaceBid,onFinalizeAuction,showOwnerActions,txLoading}) =>{
     const[showListModal,setShowListModal] = useState(false);
-    const[showAuctionModal,setAuctionModal] = useState(false);
+    const[showAuctionModal,setShowAuctionModal] = useState(false);
     const[showBidModal,setShowBidModal] = useState(false);
 
     const isListedForSale = nft.info?.isListed;
@@ -190,28 +190,28 @@ const NFTCard = ({nft,onCreateAuction,onListForSale,onBuyNft,onPlaceBid,onFinali
                 </div>
             </div>
 
-            <ListForSaleModal
-                isOpen={showListModal}
-                onClose={() => setShowListModal(false)}
-                onList={onListForSale}
-                tokenId={nft.tokenId}
-                txLoading={txLoading}
-            />
-            <CreateAuctionModal
-                isOpen={showAuctionModal}
-                onClose={() => setShowAuctionModal(false)}
-                onCreate={onCreateAuction}
-                tokenId={nft.tokenId}
-                txLoading={txLoading}
-            />
-            <PlaceBidModal
-                isOpen={showBidModal}
-                onClose={() => setShowBidModal(false)}
-                onPlaceBid={onPlaceBid}
-                tokenId={nft.tokenId}
-                currentHighestBid={nft.info?.highestBid}
-                txLoading={txLoading}
-            />
+                <ListForSaleModal
+                    isOpen={showListModal}
+                    onClose={() => setShowListModal(false)}
+                    onList={onListForSale}
+                    tokenId={nft.tokenId}
+                    txLoading={txLoading}
+                />
+                <CreateAuctionModal
+                    isOpen={showAuctionModal}
+                    onClose={() => setShowAuctionModal(false)}
+                    onCreate={onCreateAuction}
+                    tokenId={nft.tokenId}
+                    txLoading={txLoading}
+                />
+                <PlaceBidModal
+                    isOpen={showBidModal}
+                    onClose={() => setShowBidModal(false)}
+                    onPlaceBid={onPlaceBid}
+                    tokenId={nft.tokenId}
+                    currentHighestBid={nft.info?.highestBid}
+                    txLoading={txLoading}
+                />
             </div>
         );
 }
