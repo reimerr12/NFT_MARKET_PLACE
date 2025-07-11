@@ -215,3 +215,4 @@ const NFTCard = ({nft,onCreateAuction,onListForSale,onBuyNft,onPlaceBid,onFinali
             </div>
         );
 }
+export default NFTCard;

@@ -6,7 +6,7 @@ import { NFT_MARKETPLACE_ABI,NFT_MARKETPLACE_ADDRESS} from "../utils/marketplace
 import { IMAGE_NFT_ABI,IMAGE_NFT_ADDRESS } from "../utils/ImagenftContract";
 
 
-export const useNFT = ()=>{
+const useNFT = ()=>{
     const {account,signer,provider} = useWeb3();
     const[loading,setLoading] = useState(false);
     const[error,setError] = useState(null);
@@ -546,3 +546,5 @@ export const useNFT = ()=>{
     };
 
 }
+
+export default useNFT;
