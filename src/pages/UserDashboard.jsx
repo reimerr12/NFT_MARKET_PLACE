@@ -386,7 +386,7 @@ const UserDashboard = () =>{
                                 <div className="flex items-center mb-2">
                                     <ShoppingCart className="h-5 w-5 text-blue-500" />
                                 </div>
-                                <p className="text-2xl font-bold text-white">{totalCount.owned}</p>
+                                <p className="text-2xl font-bold text-white">{totalCount.purchased}</p>
                                 <p className="text-sm text-blue-500">Owned</p>
                             </div>
                         </div>
@@ -653,7 +653,7 @@ const UserDashboard = () =>{
                             )}
 
                             {/* pagination */}
-                            
+
                         </div>
                     </div>
                 </div>
