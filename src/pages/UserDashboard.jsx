@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {Plus,Grid3x3,ShoppingCart,Search,Filter,SortAsc,DollarSign,AlertCircle,TrendingUp,Eye,Loader2,Wallet,ChevronLeft,ChevronRight,Menu,X,Settings,Heart,Star,Clock,Tag,Activity,BarChart3,PieChart,Sparkles,Zap,Globe,Users,Flame,TrendingDown,Calendar,RefreshCw,Download,Share2,Bookmark,Grid,List,MoreVertical,ArrowUpDown,SlidersHorizontal,Layers,Image,Trophy,Target} from 'lucide-react';
+import { SiEthereum } from 'react-icons/si';
 import { BigNumber } from "ethers";
 import { formatEther } from "ethers/lib/utils";
 import { useWeb3 } from "../providers/Web3Provider";
@@ -154,15 +155,36 @@ const UserDashboard = () =>{
     },[isConnected,account,getUserCreatedNFTs,getUserPurchasedNFTs,getActiveListings,getActiveAuctions,getNFTMetadata,getNftInfo]);
 
     //load withdrawabale balance
-    const loadWithdrawableBalance = useCallback(async()=>{
+    const loadWithdrawableBalance = useCallback(async() => {
         try {
-            const balanceBigNumber =await getWithdrawableBalance();
-            setWithdrawBalance(formatEther(balanceBigNumber || BigNumber.from(0)));
+            const balanceResult = await getWithdrawableBalance();
+            
+
+            if (balanceResult && typeof balanceResult === 'object' && balanceResult._isBigNumber) {
+
+                setWithdrawBalance(formatEther(balanceResult));
+            } else if (balanceResult && typeof balanceResult === 'string') {
+
+                try {
+                    const balanceBigNumber = BigNumber.from(balanceResult);
+                    setWithdrawBalance(formatEther(balanceBigNumber));
+                } catch (conversionError) {
+
+                    setWithdrawBalance(balanceResult);
+                }
+            } else if (balanceResult && typeof balanceResult === 'number') {
+
+                const balanceBigNumber = BigNumber.from(balanceResult.toString());
+                setWithdrawBalance(formatEther(balanceBigNumber));
+            } else {
+
+                setWithdrawBalance('0.0');
+            }
         } catch (error) {
             console.error('Error loading withdrawable balance:', error);
             setWithdrawBalance('0.0');
         }
-    },[getWithdrawableBalance]);
+    }, [getWithdrawableBalance]);
 
     //apply filters to nfts
     const applyFilters = useCallback((nfts)=>{
@@ -215,7 +237,7 @@ const UserDashboard = () =>{
                 break;
             case 'price_low':
                 nfts=[...nfts].sort((a,b)=>{
-                    const priceA= nfts.info?.price ? BigNumber.from(a.info.price) : BigNumber.from(0);
+                    const priceA= a.info?.price ? BigNumber.from(a.info.price) : BigNumber.from(0);
                     const priceB = b.info?.price ? BigNumber.from(b.info.price) : BigNumber.from(0);
                     return priceA.gt(priceB) ? 1 : priceB.lt(priceA) ? -1 : 0;
                 });
@@ -323,10 +345,242 @@ const UserDashboard = () =>{
             </div>
         );
     }
+    
+    return(
+        <div className="min-h-screen bg-[#202225]">
+            {/* Mobile Sidebar Overlay */}
+            {sideBarOpen && (
+                <div 
+                className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                onClick={() => setSideBarOpen(false)}
+                />
+            )}
 
+            {/* sideBar */}
+            <div className={`fixed top-16 bottom-0 left-0 z-30 w-80 bg-[#34373B] border-r border-gray-700 transform transition-transform duration-200 ease-in-out ${sideBarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 overflow-y-auto`}>
 
+                <div className="flex items-center justify-between p-6 border-b border-gray-700 lg:hidden">
+                    <h2 className="text-xl font-bold text-white">Filters</h2>
+                    <button onClick={()=> setSideBarOpen(false)} className="p-2 rounded-lg hover:bg-gray-700 transition-colors">
+                        <X className="w-5 h-5 text-red-400" />
+                    </button>
+                </div>
 
+                <div className="p-6 space-y-8 h-full overflow-y-scroll">
+                    {/* quickStats */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white flex items-center capitalize">
+                            quick stats
+                        </h3>
 
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-gradient-to-br from-blue-500/50 to-blue-600/20 rounded-2xl p-4 border border-blue-500/30 ">
+                                <div className="flex items-center mb-2">
+                                    <Sparkles className="h-5 w-5 text-blue-500" />
+                                </div>
+                                <p className="text-2xl font-bold text-white">{totalCount.created}</p>
+                                <p className="text-sm text-blue-500">Created</p>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-blue-500/50 to-blue-600/20 rounded-2xl p-4 border border-blue-500/30 ">
+                                <div className="flex items-center mb-2">
+                                    <ShoppingCart className="h-5 w-5 text-blue-500" />
+                                </div>
+                                <p className="text-2xl font-bold text-white">{totalCount.owned}</p>
+                                <p className="text-sm text-blue-500">Owned</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* search */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white flex items-center">
+                            <Search className="h-5 w-5 mr-2 text-gray-400" />
+                            Search
+                        </h3>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5" />
+                            <input 
+                                type="text"
+                                placeholder="search by name or description"
+                                value={searchQuerry}
+                                onChange={(e)=>setSearchQuerry(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 border border-gray-600 bg-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-500 transition-all duration-200"
+                             />
+                        </div>
+                    </div>
+
+                    {/* price-Range */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white flex items-center capitalize">
+                            <SiEthereum className="h-5 w-5 text-blue-500 mr-2" />
+                            price Range
+                        </h3>
+                        
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Min</label>
+                                <input 
+                                    type="number"
+                                    placeholder="0"
+                                    value={filters.priceRange.min}
+                                    onChange={(e)=>setFilters(prev => ({
+                                        ...prev,
+                                        priceRange : {...prev.priceRange, min:e.target.value}
+                                    }))}
+                                    className="w-full px-3 py-2 border border-gray-600 bg-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white text-sm"
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Max</label>
+                                <input 
+                                    type="number"
+                                    placeholder="0"
+                                    value={filters.priceRange.max}
+                                    onChange={(e)=>setFilters(prev => ({
+                                        ...prev,
+                                        priceRange : {...prev.priceRange, max:e.target.value}
+                                    }))}
+                                    className="w-full px-3 py-2 border border-gray-600 bg-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white text-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* status-filter */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white flex items-center">
+                           <Activity className="w-5 h-5 mr-2 text-blue-500" />  
+                           Status
+                        </h3>
+                        <div className="space-y-2">
+                            {[
+                                {value:'all',label:'All Items', icon:Grid3x3},
+                                {value:'listed',label:'Listed', icon:Tag},
+                                {value:'auction',label:'Auction',icon:Clock},
+                                {value:'sold',label:'Sold',icon:TrendingUp}
+                            ].map((option)=>{
+                                return <label key={option.value} className="flex items-center space-x-3 p-3 rounded-xl hover:bg-gray-700 cursor-pointer transition-colors">
+                                    <input 
+                                        type="radio" 
+                                        name="status"
+                                        value={option.value}
+                                        checked={filters.status === option.value}
+                                        onChange={(e)=>setFilters(prev => ({...prev,status:e.target.value}))}
+                                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 focus:ring-blue-500"
+                                    />
+                                    <option.icon className="h-5 w-5 text-gray-400" />
+                                    <span className="text-sm font-medium text-gray-300">{option.label}</span>
+                                </label>
+                            })}
+                        </div>
+                    </div>
+
+                    {/* sort-options */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white flex items-center">
+                            <ArrowUpDown className="w-5 h-5 mr-2 text-orange-400 capitalize"/>
+                            sort by
+                        </h3>
+                        <select 
+                            value={sortBy} 
+                            onChange={(e)=>setSortBy(e.target.value)}
+                            className="w-full px-5 py-3  border border-gray-600 bg-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white transition-all duration-200"
+                        >
+                            <option value="newest">Recently created</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="price_high">Price: High to Low</option>
+                            <option value="price_low">Price: Low to High</option>
+                        </select>
+                    </div>
+
+                    {/* clear-filters */}
+                    <button onClick={clearFilters} className="w-full py-3 px-4 bg-gray-700 text-gray-300 rounded-2xl hover:bg-gray-600 transition-colors font-medium">
+                            Clear All Filters
+                    </button>
+                </div>
+            </div>  
+
+            {/* main-content */}
+            <div className="lg:ml-80 min-h-screen pt-16">
+                {/* header */}
+                <div className="bg-[#34373B] border-b border-gray-700 top-0">
+                    <div className="px-6 py-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                                <button onClick={()=>setSideBarOpen(true)} className="p-2 rounded-lg hover:bg-gray-700 transition-colors lg:hidden">
+                                    <Menu className="w-5 h-5 text-gray-400" />
+                                </button>
+                                <div>
+                                    <h1 className="text-lg lg:text-2xl font-bold text-blue-500 capitalize">My collections</h1>
+                                    <p className="text-gray-400 text-sm md:text-base capitalize">Manage your NFTs and track your portfolio</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center space-x-4">
+                                {parseFloat(withdrawBalance) > 0 && (
+                                    <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl px-4 py-2 flex items-center space-x-3 shadow-lg">
+                                        <SiEthereum className="w-5 h-5" />
+                                        <div>
+                                            <p className="text-sm font-medium">Available</p>
+                                            <p className="text-lg font-bold">{parseFloat(withdrawBalance).toFixed(4)}</p>
+                                        </div>
+                                        <button className="ml-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 disabled:opacity-50 transition-colors text-sm font-semibold" onClick={handleWithDrawFunds} disabled={txLoading}>
+                                            {txLoading ? <Loader2 className="animate-spin w-4 h-4" /> : 'Withdraw'}
+                                        </button>
+                                    </div>
+                                )}
+                                <button onClick={()=>setShowMintModal(true)} className="flex items-center space-x-2 px-4 py-2 bg-[#202225] border-2 border-blue-500 text-blue-500 rounded-xl hover:bg-blue-500 hover:text-white transition-all duration-200 shadow-lg hover:shadow-xl font-semibold">
+                                    <Plus className="h-5 w-5" />
+                                    <span>Create NFT</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* content-area */}
+                <div className="p-6">
+                    {txError && (
+                        <div className="mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-xl">
+                            <div className="flex items-center">
+                                <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
+                                <p className="text-red-300 font-medium">{txError}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* tabs */}
+                    <div className="bg-[#34373B] rounded-2xl border border-gray-500 overflow-hidden mb-6">
+                        <div className="border-b border-gray-700">
+                            <nav className="flex space-x-8 px-6">
+                                {[
+                                    {key:'created',label:'Created', icon:Sparkles, count:totalCount.created},
+                                    {key:'purchased',label:'Collected', icon:Heart, count:totalCount.purchsed},
+                                    {key:'marketplace',label:'Marketplace', icon:Globe , count:totalCount.marketplace}
+                                ].map((tab) => (
+                                    <button 
+                                    key={tab.key}
+                                    onClick={()=> getActiveTab(tab.key)}
+                                    className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-semibold text-sm transition-colors duration-200 ${activeTab === tab.key ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-300'}`}
+                                    >
+                                        <tab.icon className="h-5 w-5"/>
+                                        <span>{tab.label}</span>
+                                        <span className="bg-gray-700 text-gray-300 rounded-full px-2 py-1 text-xs font-medium">
+                                            {tab.count}
+                                        </span>
+                                    </button>
+                                ))}
+                            </nav>
+                        </div>
+
+                        {/* controls */}
+
+                    </div>
+                </div>
+            </div>
+        </div> 
+    )
 }
-
 export default UserDashboard;
