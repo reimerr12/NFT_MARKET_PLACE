@@ -56,7 +56,7 @@ const UserDashboard = () =>{
     const[itemsPerPage,setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
     const[totalCount,setTotalCount] = useState({
         created:0,
-        purchsed:0,
+        purchased:0,
         marketplace:0
     });
 
@@ -249,7 +249,7 @@ const UserDashboard = () =>{
     },[allNfts,activeTab,searchQuerry,sortBy,applyFilters]);
 
     //memoized pagination
-    const pagination = useMemo(()=>{
+    const paginatedNFTs = useMemo(()=>{
         const startIndex = (currentPage - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
         return filteredAndSortedNfts.slice(startIndex,endIndex);
@@ -318,7 +318,7 @@ const UserDashboard = () =>{
 
     const handlePageChange = (page) =>{
         setCurrentPage(page);
-        window.scrollTo({top:0,behavious:'smooth'});
+        window.scrollTo({top:0,behaviour:'smooth'});
     };
 
     const clearFilters = ()=>{
@@ -557,7 +557,7 @@ const UserDashboard = () =>{
                             <nav className="flex space-x-8 px-6">
                                 {[
                                     {key:'created',label:'Created', icon:Sparkles, count:totalCount.created},
-                                    {key:'purchased',label:'Collected', icon:Heart, count:totalCount.purchsed},
+                                    {key:'purchased',label:'Collected', icon:Heart, count:totalCount.purchased},
                                     {key:'marketplace',label:'Marketplace', icon:Globe , count:totalCount.marketplace}
                                 ].map((tab) => (
                                     <button 
@@ -576,11 +576,90 @@ const UserDashboard = () =>{
                         </div>
 
                         {/* controls */}
+                        <div className="p-2 bg-[#34373B]/50 border-b border-gray-700">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-4">
+                                    <div className="flex items-center bg-gray-700 space-x-2 rounded-xl border border-gray-600 p-1">
+                                        <button onClick={()=>setViewMode('grid')} className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-400 bg-gray-600'}`}>
+                                            <Grid className="h-5 w-5"/>
+                                        </button>   
 
+                                        <button onClick={()=>setViewMode('list')} className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-400 bg-gray-600'}`}>
+                                            <List className="h-5 w-5"/>
+                                        </button> 
+                                    </div>
+
+                                    <select value={itemsPerPage} onChange={(e)=>{setItemsPerPage(parseInt(e.target.value))}} className="bg-gray-700 rounded-lg px-2 py-2 text-white border border-blue-500">
+                                        {ITEMS_PER_PAGE_OPTIONS.map(option =>(
+                                            <option key={option} value={option}>
+                                                {option} NFTs
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex items-center space-x-4">
+                                    <button onClick={loadNFTData} disabled={dataLoading} className="flex items-center space-x-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                        {dataLoading ? (
+                                            <Loader2 className="animate-spin h-5 w-5" />
+                                        ):(
+                                            <RefreshCw className="h-5 w-5" />
+                                        )}
+                                        <span className="capitalize">refresh data</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* NFT-DISPLAY-AREA */}
+                        <div className="p-6">
+                            {dataLoading && filteredAndSortedNfts.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                                    <Loader2 className="w-10 h-10 animate-spin mb-4 text-blue-500" />
+                                    <p className="text-lg font-medium">loading nfts...</p>
+                                    <p className="text-sm text-gray-500 mt-1">this might take a moment</p>
+                                </div>
+                            ): paginatedNFTs.length === 0 ? (
+                                <div className="text-center py-12 text-gray-400">
+                                    <Image className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                                    <p className="text-xl font-semibold mb-2 capitalize">no nfts found</p>
+                                    <p className="text-gray-400 capitalize">
+                                        {searchQuerry || filters.priceRange.min || filters.priceRange.max || filters.status !== 'all' ? 'try adjusting your filters or searchQuery' : 'you currently have no nfts in this category'}
+                                    </p>
+
+                                    {activeTab === 'created' && (
+                                        <button onClick={()=>setShowMintModal(true)} className="flex items-center space-x-2 px-4 py-2 bg-[#202225] border-2 border-blue-500 text-blue-500 rounded-xl hover:bg-blue-500 hover:text-white transition-all duration-200 shadow-lg hover:shadow-xl font-semibold">
+                                            <Plus className="h-5 w-5 " />
+                                            <span className="capitalize">create your first nft</span>
+                                        </button>
+                                    )}
+                                </div>
+                            ):(
+                                <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ' : 'grid-cols-1'}`}>
+                                    {paginatedNFTs.map(nft =>(
+                                        <NFTCard 
+                                            key={nft.tokenId}
+                                            nft={nft}
+                                            account={account}
+                                            onListForSale={handleListForSale}
+                                            onCreateAuction={handleCreateAuction}
+                                            onFinalizeAuction={handleFinalizeAuction}
+                                            txLoading={txLoading}
+                                            txError={txError}
+                                            loadNFTData={loadNFTData}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* pagination */}
+                            
+                        </div>
                     </div>
                 </div>
             </div>
         </div> 
+        
     )
 }
 export default UserDashboard;
