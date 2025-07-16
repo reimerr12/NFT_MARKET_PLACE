@@ -1,120 +1,199 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { X, HandCoins, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-import { formatEther , parseEther } from "ethers/lib/utils";
+import { formatEther, parseEther } from "ethers/lib/utils";
+import Portal from "./Portal";
 import { BigNumber } from "ethers";
 
-const PlaceBidModal=({isOpen,onClose,tokenId,onPlaceBid,currentHighestBid,txLoading})=>{
-    const[bidAmount,setBidAmount] = useState('');
-    const[status,setStatus] = useState(null);
+const PlaceBidModal = ({ isOpen, onClose, tokenId, onPlaceBid, currentHighestBid, txLoading }) => {
+    const [bidAmount, setBidAmount] = useState('');
+    const [status, setStatus] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    useEffect(() => {
-        if (!isOpen) {
-        resetForm();
-        }
-    }, [isOpen]);
 
-    const resetForm = ()=>{
+    const currentHighestBidBigNumber = useMemo(() => {
+        return currentHighestBid ? BigNumber.from(currentHighestBid) : BigNumber.from(0);
+    }, [currentHighestBid]);
+
+    const currentHighestBidEth = useMemo(() => {
+        return currentHighestBidBigNumber.gt(0) ? formatEther(currentHighestBidBigNumber) : '0';
+    }, [currentHighestBidBigNumber]);
+
+    const minBidAmount = useMemo(() => {
+        const currentBidEth = parseFloat(currentHighestBidEth);
+        return currentBidEth > 0 ? currentBidEth + 0.005 : 0.005;
+    }, [currentHighestBidEth]);
+
+
+    const resetForm = useCallback(() => {
         setBidAmount('');
         setStatus(null);
-    }
+        setIsSubmitting(false);
+    }, []);
 
-    const handleClose=()=>{
+ 
+    const handleClose = useCallback(() => {
         resetForm();
         onClose();
-    }
+    }, [resetForm, onClose]);
 
-    const handleSubmit=async(e)=>{
+
+    useEffect(() => {
+        if (isOpen) {
+            resetForm();
+        }
+    }, [isOpen, resetForm]);
+
+    // Stable input change handler
+    const handleBidAmountChange = useCallback((e) => {
+        setBidAmount(e.target.value);
+        if (status === 'error') setStatus(null); 
+    }, [status]);
+
+    // Stable submit handler
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
+        
+        if (isSubmitting || txLoading) return;
+
+        setIsSubmitting(true);
         setStatus('pending');
+        
         try {
-            if(!bidAmount || parseFloat(bidAmount)<=0){
-                throw new Error("please enter a valid bid amount.");
+            const bidValue = parseFloat(bidAmount);
+            
+            if (!bidAmount || bidValue <= 0 || isNaN(bidValue)) {
+                throw new Error("Please enter a valid bid amount.");
             }
+
             const bidAmountInWei = parseEther(bidAmount);
 
-            const currentHighestBidBigNumber = currentHighestBid ? BigNumber.from(currentHighestBid) : BigNumber.from(0);
-
-            if(bidAmountInWei.lte(currentHighestBidBigNumber)){
-                throw new Error(`Your bid must be higher than the current highest bid (${formatEther(currentHighestBidBigNumber)} ETH).`);
+            if (bidAmountInWei.lte(currentHighestBidBigNumber)) {
+                throw new Error(`Your bid must be higher than the current highest bid (${currentHighestBidEth} ETH).`);
             }
 
-            await onPlaceBid(tokenId,bidAmountInWei);
+            await onPlaceBid(tokenId, bidAmountInWei);
+            
             setStatus('success');
-            setTimeout(handleClose,2000);
+            setIsSubmitting(false);
+            
+            // Close modal after success
+            setTimeout(() => {
+                handleClose();
+            }, 1500);
+            
         } catch (error) {
-            console.error("there was an error placing a bid",error);
-            setStatus('failed');
+            console.error("Error placing bid:", error);
+            setStatus('error');
+            setIsSubmitting(false);
         }
-    }
+    }, [
+        bidAmount,
+        tokenId,
+        onPlaceBid,
+        currentHighestBidBigNumber,
+        currentHighestBidEth,
+        handleClose,
+        isSubmitting,
+        txLoading
+    ]);
 
-    if(!isOpen) return null;
+    if (!isOpen) return null;
 
-    return(
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in">
-            <div className="bg-[#202225] rounded-xl shadow-2xl w-full max-w-sm p-6 relative transform scale-95 animate-scale-in border border-[#34373B]">
+    const isLoading = txLoading || isSubmitting || status === 'pending';
 
-                <button onClick={handleClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-200 transition-colors duration-200 rounded-full p-1 hover:bg-[#34373B]">
-                    <X className="w-6 h-6" />
-                </button>
-
-                <h2 className="text-2xl font-bold text-white mb-6 text-center capitalize">place bid on nft</h2>
-
-                <form action="" onSubmit={handleSubmit} className="space-y-5">
-                    <p className="text-gray-300 text-center">
-                        You are placing a bid on NFT {tokenId.toString()}.
-                    </p>
-
-                    {currentHighestBid && currentHighestBid !=='0' && (
-                        <p className="text-md text-gray-200 capitalize">
-                            current highest bid: <span className="font-semibold text-blue-500">{parseFloat(parseEther(currentHighestBid)).toFixed(4)}</span>
-                        </p>
-                    )}
-
-                    <div>
-                        <label htmlFor="bidAmount" className="block text-sm font-medium text-gray-300 mb-2">place your bid</label>
-
-                        <input 
-                        type="number" 
-                        id="bidAmount"
-                        value={bidAmount}
-                        onChange={(e)=>setBidAmount(e.target.value)}
-                        min={currentHighestBid ? parseFloat(formatEther(currentHighestBid)) + 0.005 : 0.005}
-                        step='0.005'
-                        className="mt-1 block px-4 py-2 border border-[#474A50] w-fit rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text white bg-bg-[#34373B] placeholder-gray-500 duration-200"
-                        placeholder={`Min ${currentHighestBid ? (parseFloat(formatEther(currentHighestBid)) + 0.005).toFixed(4) : '0.005'}`}
-                        required
-                        />
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={txLoading || status === 'pending'}
-                        className="w-full flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-green-700 hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+    return (
+        <Portal>
+            <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[99999] p-4">
+                <div 
+                    className="bg-[#202225] rounded-xl shadow-2xl w-full max-w-sm p-6 relative border border-[#34373B]"
+                    onClick={(e) => e.stopPropagation()} // Prevent event bubbling
+                >
+                    <button 
+                        onClick={handleClose} 
+                        type="button"
+                        className="absolute top-4 right-4 text-gray-400 hover:text-gray-200 transition-colors duration-200 rounded-full p-1 hover:bg-[#34373B]"
+                        disabled={isLoading}
                     >
-                        {txLoading || status === 'pending' ? (
-                        <Loader2 className="animate-spin h-5 w-5 mr-3" />
-                        ) : (
-                        <HandCoins className="h-5 w-5 mr-3" />
-                        )}
-                        {txLoading || status === 'pending' ? 'Placing Bid...' : 'Place Bid'}
+                        <X className="w-6 h-6" />
                     </button>
 
-                    {status === 'success' && (
-                        <div className="mt-4 flex items-center justify-center text-green-400">
-                        <CheckCircle className="h-5 w-5 mr-2" />
-                        <span>Bid Placed Successfully!</span>
-                        </div>
-                    )}
+                    <h2 className="text-2xl font-bold text-white mb-6 text-center">
+                        Place Bid on NFT
+                    </h2>
 
-                    {status === 'error' && (
-                        <div className="mt-4 flex items-center justify-center text-red-500">
-                        <AlertCircle className="h-5 w-5 mr-2" />
-                        <span>Bid Failed. Please try again.</span>
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        <p className="text-gray-300 text-center">
+                            You are placing a bid on NFT #{tokenId?.toString()}.
+                        </p>
+
+                        {currentHighestBidBigNumber.gt(0) && (
+                            <div className="bg-[#34373B] p-3 rounded-lg">
+                                <p className="text-sm text-gray-300">
+                                    Current highest bid: 
+                                    <span className="font-semibold text-blue-400 ml-2">
+                                        {parseFloat(currentHighestBidEth).toFixed(4)} ETH
+                                    </span>
+                                </p>
+                            </div>
+                        )}
+
+                        <div>
+                            <label htmlFor="bidAmount" className="block text-sm font-medium text-gray-300 mb-2">
+                                Your Bid Amount (ETH) <span className="text-red-500">*</span>
+                            </label>
+                            <input 
+                                type="number" 
+                                id="bidAmount"
+                                value={bidAmount}
+                                onChange={handleBidAmountChange}
+                                min={minBidAmount}
+                                step="0.005"
+                                placeholder={`Minimum ${minBidAmount.toFixed(4)} ETH`}
+                                disabled={isLoading}
+                                className="mt-1 block w-full px-4 py-2 border border-[#474A50] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-white bg-[#34373B] placeholder-gray-500 transition-colors duration-200 disabled:opacity-50"
+                                required
+                            />
+                            <p className="text-xs text-gray-400 mt-1">
+                                Minimum bid: {minBidAmount.toFixed(4)} ETH
+                            </p>
                         </div>
-                    )}
-                </form>
+
+                        <button
+                            type="submit"
+                            disabled={isLoading || !bidAmount}
+                            className="w-full flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-green-700 hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                        >
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="animate-spin h-5 w-5 mr-3" />
+                                    Placing Bid...
+                                </>
+                            ) : (
+                                <>
+                                    <HandCoins className="h-5 w-5 mr-3" />
+                                    Place Bid
+                                </>
+                            )}
+                        </button>
+
+                        {status === 'success' && (
+                            <div className="mt-4 flex items-center justify-center text-green-400">
+                                <CheckCircle className="h-5 w-5 mr-2" />
+                                <span>Bid Placed Successfully!</span>
+                            </div>
+                        )}
+
+                        {status === 'error' && (
+                            <div className="mt-4 flex items-center justify-center text-red-500">
+                                <AlertCircle className="h-5 w-5 mr-2" />
+                                <span>Bid Failed. Please try again.</span>
+                            </div>
+                        )}
+                    </form>
+                </div>
             </div>
-        </div>
+        </Portal>
     );
-}
+};
+
 export default PlaceBidModal;

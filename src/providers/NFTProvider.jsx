@@ -55,7 +55,7 @@ const useNFT = ()=>{
             console.log("minting nft....");
             const{ImagenftContract} = getContracts();
 
-            const tx = await ImagenftContract.mintNFT(uploadResult.metadata.tokenURI,royaltyBps);
+            const tx = await ImagenftContract.mintNft(uploadResult.metadata.tokenURI,royaltyBps);
             const receipt = await tx.wait();
 
             //extract nft tokenId from events

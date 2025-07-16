@@ -84,75 +84,90 @@ const UserDashboard = () =>{
     },[]);
 
     const loadNFTData = useCallback(async()=>{
-        if(!isConnected || !account) return 'please connect your metamask wallet';
-        setDataLoading(true);
+    if(!isConnected || !account) return 'please connect your metamask wallet';
+    setDataLoading(true);
 
-        try{
-            const[createdTokenIds,purchasedTokenIds,activeListings,activeAuctions] = await Promise.all([
-                getUserCreatedNFTs(),
-                getUserPurchasedNFTs(),
-                getActiveListings(),
-                getActiveAuctions()
-            ]);
+    try{
+        const[createdTokenIds,purchasedTokenIds,activeListings,activeAuctions] = await Promise.all([
+            getUserCreatedNFTs(),
+            getUserPurchasedNFTs(),
+            getActiveListings(),
+            getActiveAuctions()
+        ]);
 
-            //update counts immedieatly
-            const marketPlaceTokenIds = [...new Set([...activeListings,...activeAuctions])];
-            setTotalCount({
-                created:createdTokenIds.length,
-                purchased:purchasedTokenIds.length,
-                marketplace:marketPlaceTokenIds.length
-            });
+        //update counts immediately
+        const marketPlaceTokenIds = [...new Set([...activeListings,...activeAuctions])];
+        setTotalCount({
+            created:createdTokenIds.length,
+            purchased:purchasedTokenIds.length,
+            marketplace:marketPlaceTokenIds.length
+        });
 
-            //load metadata in smaller batches for smoother user experience
-            const batchSize = 20;
-            const loadNftBatch = async(tokenIds,startIndex = 0)=>{
-                const batch = tokenIds.slice(startIndex,startIndex + batchSize);
-                if(batch.length === 0 ) return [];
+        //load metadata in smaller batches for smoother user experience
+        const loadNftBatch = async(tokenIds)=>{
+            if(tokenIds.length === 0) return [];
 
-                const nftPromises = batch.map(async(tokenId)=>{
-                    try {
-                        const[metadata,info] = Promise.all([
-                            getNFTMetadata(tokenId),
-                            getNftInfo(tokenId)
-                        ]);
-                        return {tokenId,metadata,info};
-                    } catch (error) {
-                        console.error(`Error loading NFT ${tokenId}:`, error);
-                        return null;
+            const nftPromises = tokenIds.map(async(tokenId)=>{
+                try {
+                    const[metadata,info] = await Promise.all([
+                        getNFTMetadata(tokenId),
+                        getNftInfo(tokenId)
+                    ]);
+
+                    const processedInfo = {...info};
+
+                    if(processedInfo.price !== undefined && processedInfo.price!== null ){
+                        try {
+                            processedInfo.price = BigNumber.from(processedInfo.price);
+                        } catch (error) {
+                            console.warn("error converting number to bignumber",processedInfo.price,error);
+                            processedInfo.price = BigNumber.from(0);
+                        }
+                    }else{
+                        processedInfo.price = BigNumber.from(0);
                     }
-                });
 
-                const results = await Promise.all(nftPromises);
-                return results.filter(boolean);
-            }
+                    if (processedInfo.highestBid !== undefined && processedInfo.highestBid !== null) {
+                        try {
+                            processedInfo.highestBid = BigNumber.from(processedInfo.highestBid);
+                        } catch (e) {
+                            console.warn(`Error converting highestBid to BigNumber for NFT ${tokenId}:`, processedInfo.highestBid, e);
+                            processedInfo.highestBid = BigNumber.from(0);
+                        }
+                    } else {
+                        processedInfo.highestBid = BigNumber.from(0); 
+                    }
+                    return {tokenId,metadata,info:processedInfo};
 
-            //load all nfts in batches
-            const loadAllNFTs = async(tokenIds)=>{
-                const allResults = [];
-                for(let i=0 ; i < tokenIds.length ; i += batchSize){
-                    const batch = await loadNftBatch(tokenIds , i);
-                    allResults.push(...batch);
+                } catch (error) {
+                    console.error(`Error loading NFT ${tokenId}:`, error);
+                    return null;
                 }
-                return allResults;
-            }
-
-            const[createdWithMetadata,purchasedWithMetadata,marketplaceWithMetadata] = await Promise.all([
-                loadAllNFTs(createdTokenIds),
-                loadAllNFTs(purchasedTokenIds),
-                loadAllNFTs(marketPlaceTokenIds)
-            ]);
-
-            setAllNfts({
-                created: createdWithMetadata,
-                purchased:purchasedWithMetadata,
-                marketplace:marketplaceWithMetadata
             });
-        }catch(error){
-            console.error("error loading nft data",error);
-        } finally{
-            setDataLoading(false);
+
+            const results = await Promise.all(nftPromises);
+            return results.filter(Boolean); // Filter out null values
         }
-    },[isConnected,account,getUserCreatedNFTs,getUserPurchasedNFTs,getActiveListings,getActiveAuctions,getNFTMetadata,getNftInfo]);
+
+        // Load NFTs for each category
+        const[createdWithMetadata,purchasedWithMetadata,marketplaceWithMetadata] = await Promise.all([
+            loadNftBatch(createdTokenIds),
+            loadNftBatch(purchasedTokenIds),
+            loadNftBatch(marketPlaceTokenIds)
+        ]);
+
+        setAllNfts({
+            created: createdWithMetadata,
+            purchased: purchasedWithMetadata,
+            marketplace: marketplaceWithMetadata
+        });
+        
+    }catch(error){
+        console.error("error loading nft data",error);
+    } finally{
+        setDataLoading(false);
+    }
+},[isConnected,account,getUserCreatedNFTs,getUserPurchasedNFTs,getActiveListings,getActiveAuctions,getNFTMetadata,getNftInfo]);
 
     //load withdrawabale balance
     const loadWithdrawableBalance = useCallback(async() => {
@@ -204,8 +219,8 @@ const UserDashboard = () =>{
             }
             
             return true;
-        },[filters]);
-    });
+        });
+    },[filters]);
 
     const filteredAndSortedNfts = useMemo(()=>{
         let nfts = allNfts[activeTab] || [];
@@ -272,7 +287,7 @@ const UserDashboard = () =>{
         }
     }
 
-    const handleListForSale = async(tokenId,price)=>{
+    const handleListForSale = useCallback(async(tokenId,price)=>{
         try {
             await listForSale(tokenId,price);
             await loadNFTData();
@@ -281,9 +296,9 @@ const UserDashboard = () =>{
             console.error("there is an error in the handleListForSale",(txError || error.message || 'Unknown error'));
             throw error;
         }
-    }
+    },[]);
 
-    const handleCreateAuction = async(tokenId,reservePrice,duration)=>{
+    const handleCreateAuction = useCallback(async(tokenId,reservePrice,duration)=>{
         try {
             await createAuction(tokenId,reservePrice,duration);
             await loadNFTData();
@@ -292,9 +307,9 @@ const UserDashboard = () =>{
             console.error('there is an error in the handleCreateAuction ',(txError || error.message || 'Unknown error'));
             throw error;
         }
-    }
+    },[])
 
-    const handleFinalizeAuction = async(tokenId) =>{
+    const handleFinalizeAuction = useCallback(async(tokenId) =>{
         try {
             await finalizeAuction(tokenId);
             await loadNFTData();
@@ -303,7 +318,7 @@ const UserDashboard = () =>{
             console.error("there is an error in the handleFinalizeAuction",(txError || error.message || 'Unknown error'));
             throw error;
         }
-    }
+    },[])
 
     const handleWithDrawFunds = async()=>{
         try {
@@ -647,17 +662,38 @@ const UserDashboard = () =>{
                                             txLoading={txLoading}
                                             txError={txError}
                                             loadNFTData={loadNFTData}
+                                            showOwnerActions={activeTab === 'created' || activeTab === 'purchased'}
                                         />
                                     ))}
                                 </div>
                             )}
 
                             {/* pagination */}
-
+                            {totalPages > 1 && (
+                                <div className="flex justify-center items-center space-x-8 mt-4">
+                                    <button onClick={()=>handlePageChange(currentPage -1)} disabled={!hasPrevPage || dataLoading} className="p-3 bg-gray-700 rounded-xl hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-white">
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                    <span className="text-gray-300 font-medium">
+                                        Page {currentPage} of {totalPages}
+                                    </span>
+                                    <button onClick={()=>handlePageChange(currentPage + 1)} disabled={!hasPrevPage || dataLoading} className="p-3 bg-gray-700 rounded-xl hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-white">
+                                        <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
+
+            <MintNFTModal 
+                isOpen={showMintModal}
+                onClose={()=>setShowMintModal(false)}
+                onMint={handleMintNFT}
+                loading={txLoading}
+                error={txError}
+            />
         </div> 
         
     )
