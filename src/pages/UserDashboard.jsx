@@ -222,13 +222,36 @@ const UserDashboard = () =>{
         });
     },[filters]);
 
+    const getNFTDisplayDataForSearch = (nft)=>{
+        const metadata = nft.metadata || {};
+
+        let name = metadata.name || metadata.title || metadata.displayName;
+
+        if(!name && typeof metadata === 'object'){
+            const keys = Object.keys(metadata).filter(key => /^\d+$/.test(key)).sort((a,b)=> parseInt(a) - parseInt(b));
+            if(keys.length > 0){
+                name = keys.map(key => metadata[key]).join('');
+            }
+        }
+
+        if(!name){
+            name = `#NFT${nft.tokenId}`
+        }
+
+        const description = metadata.description || metadata.desc || metadata.summary || '';
+
+        return {name,description};
+    }
+
     const filteredAndSortedNfts = useMemo(()=>{
         let nfts = allNfts[activeTab] || [];
 
         if(searchQuerry.trim()){
             const querry = searchQuerry.toLocaleLowerCase();
             nfts = nfts.filter(nft =>{
-                nft.metadata?.name?.toLocaleLowerCase().includes(querry) || nft.metadata?.description?.toLocaleLowerCase().includes(querry);
+                const{name,description} = getNFTDisplayDataForSearch(nft);
+
+                return name.toLocaleLowerCase().includes(querry) || description.toLocaleLowerCase().includes(querry);
             });
         }
 
@@ -270,7 +293,7 @@ const UserDashboard = () =>{
         return filteredAndSortedNfts.slice(startIndex,endIndex);
     },[filteredAndSortedNfts,currentPage,itemsPerPage]);
 
-    //calculate oagination info
+    //calculate pagination info
     const totalPages = Math.ceil(filteredAndSortedNfts.length / itemsPerPage);
     const hasNextPage = currentPage < totalPages;
     const hasPrevPage = currentPage > 1;
