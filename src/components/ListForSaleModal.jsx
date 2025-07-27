@@ -41,20 +41,17 @@ const ListForSaleModal = ({ isOpen, onClose, onList, tokenId, txLoading }) => {
 
         setIsSubmitting(true);
 
-        try {
-            // Ensure wallet is connected
+        try {// Ensure wallet is connected
             if (!account || !isConnected) {
                 setStatus('pending-connect');
                 await connectWallet();
                 
-                // Wait for state to update
                 let attempts = 0;
                 while ((!account || !isConnected) && attempts < 10) {
                     await new Promise(resolve => setTimeout(resolve, 300));
                     attempts++;
                 }
                 
-                // Final check
                 if (!account || !isConnected) {
                     throw new Error("Failed to connect wallet");
                 }
@@ -63,7 +60,6 @@ const ListForSaleModal = ({ isOpen, onClose, onList, tokenId, txLoading }) => {
             setStatus('pending');
             const priceInWei = parseEther(price);
             
-            // Add a small delay to ensure NFT provider has the updated state
             await new Promise(resolve => setTimeout(resolve, 100));
             
             await onList(tokenId, priceInWei);

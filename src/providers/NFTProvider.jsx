@@ -1,4 +1,4 @@
-import { useState , useCallback,useContext } from "react";
+import { useState , useCallback,useContext ,useRef,useEffect} from "react";
 import { ethers } from "ethers";
 import { useWeb3 } from "./Web3Provider";
 import pinataService, { uploadFile } from "./PinataConnection";
@@ -10,6 +10,15 @@ const useNFT = ()=>{
     const {account,signer,provider,isConnected} = useWeb3();
     const[loading,setLoading] = useState(false);
     const[error,setError] = useState(null);
+    const accountRef = useRef();
+    const signerRef = useRef();
+    const isConnectedRef = useRef();    
+
+    useEffect(() => {
+        accountRef.current = account;
+        signerRef.current = signer;
+        isConnectedRef.current = isConnected;
+    }, [account, signer, isConnected]);
 
     //get contract instances
     const getContracts = useCallback(()=>{
@@ -85,23 +94,10 @@ const useNFT = ()=>{
     },[getContracts]);
 
     //list for sale
-    const listForSale = useCallback(async(tokenId,priceInWei)=>{
-        console.log("NFTProvider: listForSale invoked.");
-        console.log("NFTProvider: Current account from context:", account);
-        console.log("NFTProvider: Current signer from context:", signer);
-        console.log("NFTProvider: Is wallet connected from context:", isConnected);
-        
-        // Add a small delay to ensure state synchronization
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        console.log("NFTProvider: After delay - account:", account, "isConnected:", isConnected);
-        
-        // More thorough wallet connection check
-        if (!account || !signer || !isConnected) {
-            console.error("NFTProvider: Wallet not properly connected", { account, signer: !!signer, isConnected });
-            throw new Error("Please connect your wallet");
-        }
-        
+    const listForSale = useCallback(async(tokenId,priceInWei)=>{     
+        const currentAccount = accountRef.current;
+        const currentSigner = signerRef.current;
+        const currentIsConnrcted = isConnectedRef.current;
         try {
             setLoading(true);
             setError(null);
@@ -109,11 +105,17 @@ const useNFT = ()=>{
             if (priceInWei.isZero() || priceInWei.lt(ethers.constants.Zero)) {
                 throw new Error("Price must be positive");
             }
+            //approval
+            const ImagenftContract = new ethers.Contract(IMAGE_NFT_ADDRESS, IMAGE_NFT_ABI, currentSigner);
+            console.log("Approving marketplace...");
+            const approveTx = await ImagenftContract.approve(NFT_MARKETPLACE_ADDRESS, tokenId);
+            await approveTx.wait();
+            console.log("Marketplace approved, now listing...");
 
-            const {marketPLaceContract} = getContracts();
+            const marketPLaceContract = new ethers.Contract(NFT_MARKETPLACE_ADDRESS,NFT_MARKETPLACE_ABI,currentSigner);
 
             //listing for sale
-            console.log("listing for sale");
+            console.log("Listing NFT for sale...");
             const tx = await marketPLaceContract.listForSale(tokenId,priceInWei);
             const receipt = await tx.wait();
 
@@ -132,7 +134,7 @@ const useNFT = ()=>{
         } finally {
             setLoading(false);
         }
-    },[getContracts,account, signer, isConnected]);
+    },[]);
 
 
     //buy nft
@@ -396,24 +398,31 @@ const useNFT = ()=>{
     },[getReadOnlyContracts]);
 
     //get info about the nfts
-    const getNftInfo = useCallback(async(tokenId)=>{
+    const getNftInfo = useCallback(async(tokenId) => {
         try {
             setLoading(true);
             setError(null);
 
-            const {marketPLaceContract} = getReadOnlyContracts();
-
-            console.log('getting nft information');
+            const { marketPLaceContract } = getReadOnlyContracts();
+            
+            console.log('Getting NFT info for tokenId:', tokenId);
             const nftInfo = await marketPLaceContract.getNFTInfo(tokenId);
+            
+            console.log('Raw contract response:', {
+                tokenId,
+                price: nftInfo.price.toString(),
+                priceInEth: ethers.utils.formatEther(nftInfo.price),
+                isListed: nftInfo.isListed
+            });
 
-            return{
-                owner:nftInfo.owner,
-                isListed:nftInfo.isListed,
-                isAuctioned:nftInfo.isAuctioned,
-                price:ethers.utils.formatEther(nftInfo.price),
-                highestBid:ethers.utils.formatEther(nftInfo.highestBid),
-                auctionEndTime:nftInfo.auctionEndTime.toString()
-            }
+            return {
+                owner: nftInfo.owner,
+                isListed: nftInfo.isListed,
+                isAuctioned: nftInfo.isAuctioned,
+                price: nftInfo.price, // Keep as BigNumber
+                highestBid: nftInfo.highestBid, // Keep as BigNumber
+                auctionEndTime: nftInfo.auctionEndTime.toString()
+            };
         } catch (error) {
             const errorMessage = error.message || 'failed to get info of the nft';
             setError(errorMessage);
@@ -421,7 +430,7 @@ const useNFT = ()=>{
         } finally {
             setLoading(false);
         }
-    },[getReadOnlyContracts]);
+    }, [getReadOnlyContracts]);
 
     //get user created nfts
     const getUserCreatedNFTs = useCallback(async(userAddress = account)=>{

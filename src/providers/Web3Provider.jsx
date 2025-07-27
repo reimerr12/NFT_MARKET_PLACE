@@ -259,6 +259,15 @@ export const Web3Provider = ({children}) =>{
         }
     },[isConnected,account,updateBalance]);
 
+    useEffect(() => {
+        console.log("Web3Provider state changed:", { 
+            account, 
+            isConnected, 
+            signer: !!signer,
+            chainId 
+        });
+    }, [account, isConnected, signer, chainId]);
+
     useEffect(()=>{
         const checkInitialConnection = async()=>{
             if(isMetaMaskInstalled()){

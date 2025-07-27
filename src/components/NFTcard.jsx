@@ -117,8 +117,10 @@ const NFTCard = ({
         return 'not listed';
     }, [isAuction, auctionHasEnded, timeRemaining, nft.info?.auctionEndTime, isListedForSale]);
 
-    // Memoized price display
+        // Memoized price display
     const priceDisplay = useMemo(() => {
+
+        
         if (isAuction) {
             const highestBid = nft.info?.highestBid && !BigNumber.from(nft.info.highestBid).isZero() ? 
                 formatEther(BigNumber.from(nft.info.highestBid)) : null;
@@ -127,27 +129,37 @@ const NFTCard = ({
                 formatEther(BigNumber.from(nft.info.price)) : null;
 
             if (highestBid) {
-                return `${parseFloat(highestBid).toFixed(4)} ETH (Current Bid)`;
+                return `${parseFloat(highestBid)} ETH (Current Bid)`;
             } else if (reservePrice) {
-                return `${parseFloat(reservePrice).toFixed(4)} ETH (Reserve Price)`;
+                return `${parseFloat(reservePrice)} ETH (Reserve Price)`;
             }
 
             return 'no bids yet';
         }
         
         if (isListedForSale) {
-            return `${parseFloat(formatEther(BigNumber.from(nft.info.price))).toFixed(4)} ETH`;
+            // Try different approaches
+            const bigNumberPrice = BigNumber.from(nft.info.price);
+            const priceInEth = formatEther(bigNumberPrice);
+            const result = `${priceInEth} ETH`;
+            return result;
         }
 
         return 'N/A';
     }, [isAuction, isListedForSale, nft.info?.highestBid, nft.info?.price]);
 
-    // Memoized buy button price
+    // Also debug the buyButtonPrice:
     const buyButtonPrice = useMemo(() => {
         if (isListedForSale && nft.info?.price) {
-            return parseFloat(formatEther(BigNumber.from(nft.info.price))).toFixed(4);
+            const priceInEth = formatEther(BigNumber.from(nft.info.price));
+            console.log('Buy button - formatEther result:', priceInEth);
+            
+            const result = parseFloat(priceInEth).toString();
+            console.log('Buy button - final result:', result);
+            
+            return result;
         }
-        return '0.0000';
+        return '0';
     }, [isListedForSale, nft.info?.price]);
 
     const currentHighestBidForModal = useMemo(() => {

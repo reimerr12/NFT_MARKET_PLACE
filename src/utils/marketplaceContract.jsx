@@ -1,4 +1,4 @@
-export const NFT_MARKETPLACE_ADDRESS="0xc8d29d6f935149ab6c34c5fc36a4d2df0d22c578"
+export const NFT_MARKETPLACE_ADDRESS="0x02e91A2B0dd8d1abaa386c76f5a73fb51DEf116e"
 export const NFT_MARKETPLACE_ABI =[
 	{
 		"inputs": [
