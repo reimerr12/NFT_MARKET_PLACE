@@ -1,83 +1,103 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { X, Tag, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import Portal from "./Portal";
 import { parseEther } from "ethers/lib/utils";
+import { useWeb3 } from "../providers/Web3Provider";
 
 const ListForSaleModal = ({ isOpen, onClose, onList, tokenId, txLoading }) => {
     const [price, setPrice] = useState('');
     const [status, setStatus] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Stable reset function
+    const { account, isConnected, connectWallet, isConnecting } = useWeb3();
+
     const resetForm = useCallback(() => {
         setPrice('');
         setStatus(null);
         setIsSubmitting(false);
     }, []);
 
-    // Stable close handler
     const handleClose = useCallback(() => {
         resetForm();
         onClose();
     }, [resetForm, onClose]);
 
-    // Reset form when modal opens
     useEffect(() => {
         if (isOpen) {
             resetForm();
         }
     }, [isOpen, resetForm]);
 
-    // Stable submit handler
     const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
-        
+
+        const priceValue = parseFloat(price);
+        if (!price || priceValue <= 0 || isNaN(priceValue)) {
+            setStatus('error-invalid-price');
+            return;
+        }
+
         if (isSubmitting || txLoading) return;
 
         setIsSubmitting(true);
-        setStatus('pending');
-        
+
         try {
-            const priceValue = parseFloat(price);
-            if (!price || priceValue <= 0 || isNaN(priceValue)) {
-                throw new Error('Please enter a valid price');
+            // Ensure wallet is connected
+            if (!account || !isConnected) {
+                setStatus('pending-connect');
+                await connectWallet();
+                
+                // Wait for state to update
+                let attempts = 0;
+                while ((!account || !isConnected) && attempts < 10) {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    attempts++;
+                }
+                
+                // Final check
+                if (!account || !isConnected) {
+                    throw new Error("Failed to connect wallet");
+                }
             }
-            
+
+            setStatus('pending');
             const priceInWei = parseEther(price);
+            
+            // Add a small delay to ensure NFT provider has the updated state
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             await onList(tokenId, priceInWei);
             
             setStatus('success');
-            setIsSubmitting(false);
-            
-            // Close modal after success
             setTimeout(() => {
                 handleClose();
             }, 1500);
             
         } catch (error) {
-            console.error("Error in handleSubmit of list modal:", error);
+            console.error("Error in handleSubmit:", error);
             setStatus('error');
+        } finally {
             setIsSubmitting(false);
         }
-    }, [price, tokenId, onList, handleClose, isSubmitting, txLoading]);
+    }, [price, tokenId, onList, handleClose, isSubmitting, txLoading, account, isConnected, connectWallet]);
 
-    // Stable input change handler
     const handlePriceChange = useCallback((e) => {
         setPrice(e.target.value);
-        if (status === 'error') setStatus(null); // Clear error when user types
+        if (status && status.includes('error')) {
+            setStatus(null);
+        }
     }, [status]);
 
-    // Don't render if not open
     if (!isOpen) return null;
 
-    const isLoading = txLoading || isSubmitting || status === 'pending';
+    const isLoading = txLoading || isSubmitting || isConnecting || status === 'pending' || status === 'pending-connect';
 
     return (
         <Portal>
              <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
                 <div 
                     className="bg-[#202225] rounded-xl shadow-xl w-full max-w-sm p-6 relative border border-[#34373B]"
-                    onClick={(e) => e.stopPropagation()} // Prevent event bubbling
+                    onClick={(e) => e.stopPropagation()}
                 >
                     <button 
                         onClick={handleClose} 
@@ -123,7 +143,7 @@ const ListForSaleModal = ({ isOpen, onClose, onList, tokenId, txLoading }) => {
                             {isLoading ? (
                                 <>
                                     <Loader2 className="animate-spin h-5 w-5 mr-3" />
-                                    Listing NFT...
+                                    {status === 'pending-connect' ? 'Connecting Wallet...' : 'Listing NFT...'}
                                 </>
                             ) : (
                                 <>
@@ -144,6 +164,20 @@ const ListForSaleModal = ({ isOpen, onClose, onList, tokenId, txLoading }) => {
                             <div className="mt-4 flex items-center justify-center text-red-500">
                                 <AlertCircle className="h-5 w-5 mr-2" />
                                 <span>Listing Failed. Please try again.</span>
+                            </div>
+                        )}
+
+                        {status === 'error-invalid-price' && (
+                            <div className="mt-4 flex items-center justify-center text-red-500">
+                                <AlertCircle className="h-5 w-5 mr-2" />
+                                <span>Please enter a valid positive price.</span>
+                            </div>
+                        )}
+
+                        {(!account || !isConnected) && !isLoading && (
+                            <div className="mt-4 flex items-center justify-center text-yellow-400">
+                                <AlertCircle className="h-5 w-5 mr-2" />
+                                <span>Wallet not connected. Please connect to list NFT.</span>
                             </div>
                         )}
                     </form>

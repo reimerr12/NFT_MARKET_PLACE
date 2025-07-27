@@ -120,7 +120,7 @@ const UserDashboard = () =>{
                         try {
                             processedInfo.price = BigNumber.from(processedInfo.price);
                         } catch (error) {
-                            console.warn("error converting number to bignumber",processedInfo.price,error);
+                            /* console.warn("error converting number to bignumber",processedInfo.price,error); */
                             processedInfo.price = BigNumber.from(0);
                         }
                     }else{
@@ -131,7 +131,7 @@ const UserDashboard = () =>{
                         try {
                             processedInfo.highestBid = BigNumber.from(processedInfo.highestBid);
                         } catch (e) {
-                            console.warn(`Error converting highestBid to BigNumber for NFT ${tokenId}:`, processedInfo.highestBid, e);
+                            /* console.warn(`Error converting highestBid to BigNumber for NFT ${tokenId}:`, processedInfo.highestBid, e); */
                             processedInfo.highestBid = BigNumber.from(0);
                         }
                     } else {

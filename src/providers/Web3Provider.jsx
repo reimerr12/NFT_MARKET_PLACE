@@ -93,7 +93,7 @@ export const Web3Provider = ({children}) =>{
     const formatBalance = useCallback((balanceWei, decimals = 4) => {
         if (!balanceWei) return '0';
         try {
-            return parseFloat(ethers.formatEther(balanceWei)).toFixed(decimals);
+            return parseFloat(ethers.utils.formatEther(balanceWei)).toFixed(decimals);
         } catch (error) {
             console.error("Error formatting balance", error);
             return '0';
@@ -200,8 +200,22 @@ export const Web3Provider = ({children}) =>{
         }else if(accounts[0] !== account){
             setAccount(accounts[0]);
             console.log("account has been changed to",accounts[0]);
+            if(provider){
+                try {
+                    const newSigner = provider.getSigner(accounts[0]);
+                    setSigner(newSigner);
+                    console.log("Web3Provider: Signer updated for new account.");
+                } catch (error) {
+                    console.error("Web3Provider: Error getting new signer on accountsChanged:", error);
+                    setSigner(null);
+                }
+            }else{
+                console.warn("Web3Provider: Provider not available when accounts changed. Disconnecting.");
+                disconnectWallet();
+            }
         }
-    },[account , disconnectWallet]);
+        
+    },[account , disconnectWallet,provider]);
 
     //handle chains changed
     const handleChainChanged = useCallback((chainId) => {
@@ -244,6 +258,42 @@ export const Web3Provider = ({children}) =>{
             return () => clearInterval(interval);
         }
     },[isConnected,account,updateBalance]);
+
+    useEffect(()=>{
+        const checkInitialConnection = async()=>{
+            if(isMetaMaskInstalled()){
+                try {
+                    const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+
+                    const accounts = await web3Provider.listAccounts();
+
+                    if(accounts.length > 0 ){
+                        const firstAccount = accounts[0];
+                        const web3Signer = web3Provider.getSigner();
+                        const network = await web3Provider.getNetwork();
+                        
+                        setAccount(firstAccount);
+                        setProvider(web3Provider);
+                        setSigner(web3Signer);
+                        setChainId(Number(network.chainId)); 
+                        setIsConnected(true);
+                        console.log('Web3Provider: Initial wallet reconnected (ethers v5):', firstAccount);
+                
+                    }
+                    else{
+                        disconnectWallet();
+                    }
+                } catch (error) {
+                    console.error("Web3Provider: Error checking initial connection (ethers v5):", error);
+                    disconnectWallet();
+                }
+            }
+            else{
+                disconnectWallet();
+            }
+        }
+        checkInitialConnection();
+    },[isMetaMaskInstalled,disconnectWallet]);
 
 
   // Context value

@@ -7,7 +7,7 @@ import { IMAGE_NFT_ABI,IMAGE_NFT_ADDRESS } from "../utils/ImagenftContract";
 
 
 const useNFT = ()=>{
-    const {account,signer,provider} = useWeb3();
+    const {account,signer,provider,isConnected} = useWeb3();
     const[loading,setLoading] = useState(false);
     const[error,setError] = useState(null);
 
@@ -86,8 +86,22 @@ const useNFT = ()=>{
 
     //list for sale
     const listForSale = useCallback(async(tokenId,priceInWei)=>{
+        console.log("NFTProvider: listForSale invoked.");
+        console.log("NFTProvider: Current account from context:", account);
+        console.log("NFTProvider: Current signer from context:", signer);
+        console.log("NFTProvider: Is wallet connected from context:", isConnected);
         
-        if (!account) throw new Error("Please connect your wallet");
+        // Add a small delay to ensure state synchronization
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        console.log("NFTProvider: After delay - account:", account, "isConnected:", isConnected);
+        
+        // More thorough wallet connection check
+        if (!account || !signer || !isConnected) {
+            console.error("NFTProvider: Wallet not properly connected", { account, signer: !!signer, isConnected });
+            throw new Error("Please connect your wallet");
+        }
+        
         try {
             setLoading(true);
             setError(null);
@@ -118,7 +132,8 @@ const useNFT = ()=>{
         } finally {
             setLoading(false);
         }
-    },[getContracts]);
+    },[getContracts,account, signer, isConnected]);
+
 
     //buy nft
     const buyNFT = useCallback(async(tokenId)=>{
