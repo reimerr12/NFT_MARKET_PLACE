@@ -1,29 +1,56 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { X, Gavel, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import Portal from './Portal';
 import { parseEther } from 'ethers/lib/utils';
+import { useWeb3 } from '../providers/Web3Provider';
 
 const CreateAuctionModal=({isOpen,onClose,onCreate,tokenId,txLoading})=>{
     const [reservePrice,setReservePrice] = useState('');
     const [duration,setDuration] = useState('24');
     const [status,setStatus] = useState(null);
+    const [isSubmitting,setIsSubmitting] = useState(false);
 
-    const resetForm = ()=>{
+    const{isConnected,account,connectWallet,isConnecting} = useWeb3();
+
+    const resetForm = useCallback(()=>{
         setReservePrice('');
         setDuration('24');
         setStatus(null);
-    };
+        setIsSubmitting(false);
+    },[]);
 
-    const handleClose = ()=>{
+    const handleClose = useCallback(()=>{
+      resetForm();
+      onClose();
+    },[resetForm,onClose]);
+
+    useEffect(()=>{
+      if(isOpen){
         resetForm();
-        onClose();
-    }
+      }
+    },[isOpen,resetForm]);
+
+    const handleReservedPriceChange = useCallback((e)=>{
+      setReservePrice(e.target.value);
+
+      if(status && status.includes('error')){
+        setStatus(null);
+      }
+    },[status]);
+
+    const handleDurationChange = useCallback((e)=>{
+      setDuration(e.target.value);
+
+      if(status && status.includes('error')){
+        setStatus(null);
+      }
+    },[status]);
 
     const handleSubmit = async (e) =>{
         e.preventDefault();
         setStatus('pending');
         try {
-            if(!reservePrice || parseInt(reservePrice) <= 0 || !duration || parseInt(duration)<=0){
+            if(!reservePrice || parseFloat(reservePrice) <= 0 || !duration || parseInt(duration)<=0){
                 throw new Error("please enter a valid reserved price and a duration");
             }
 

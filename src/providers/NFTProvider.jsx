@@ -178,13 +178,32 @@ const useNFT = ()=>{
 
     //create auction
     const createAuction = useCallback(async(tokenId,reservedPriceInWei,durationInHours)=>{
-        if (!account) throw new Error("Please connect your wallet");
+        const currentAccount = accountRef.current;
+        const currentSigner = signerRef.current;
+        const currentIsConnected = isConnectedRef.current;
+        
         try {
             setLoading(true);
             setError(null);
+            
+            if (!currentAccount || !currentSigner || !currentIsConnected) {
+                throw new Error("Please connect your wallet");
+            }
+        
             if (durationInHours <= 0) throw new Error("Duration must be positive");
+        
+            if (reservedPriceInWei.isZero() || reservedPriceInWei.lt(ethers.constants.Zero)) {
+                throw new Error("Reserve price must be positive");
+            }
 
-            const {marketPLaceContract} = getContracts();
+            //Approve the marketplace to transfer the NFT 
+            const ImagenftContract = new ethers.Contract(IMAGE_NFT_ABI,IMAGE_NFT_ABI,currentSigner);
+            console.log(`approving marketplace for auction`);
+            const approveTx = await ImagenftContract.approve(NFT_MARKETPLACE_ADDRESS,tokenId);
+            await approveTx.wait();
+            console.log("Marketplace approved for auction, now creating auction...");
+
+            const marketPLaceContract = new ethers.Contract(NFT_MARKETPLACE_ADDRESS,NFT_MARKETPLACE_ABI,currentSigner);
             const durationInSeconds = durationInHours * 3600;
 
             console.log('creating auction...');
@@ -207,7 +226,7 @@ const useNFT = ()=>{
         } finally {
             setLoading(false);
         }
-    },[getContracts]);
+    },[]);
 
     //place bid 
     const placeBid = useCallback(async(tokenId,bidAmountInWei)=>{

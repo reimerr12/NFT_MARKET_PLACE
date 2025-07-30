@@ -84,90 +84,90 @@ const UserDashboard = () =>{
     },[]);
 
     const loadNFTData = useCallback(async()=>{
-    if(!isConnected || !account) return 'please connect your metamask wallet';
-    setDataLoading(true);
+        if(!isConnected || !account) return 'please connect your metamask wallet';
+        setDataLoading(true);
 
-    try{
-        const[createdTokenIds,purchasedTokenIds,activeListings,activeAuctions] = await Promise.all([
-            getUserCreatedNFTs(),
-            getUserPurchasedNFTs(),
-            getActiveListings(),
-            getActiveAuctions()
-        ]);
+        try{
+            const[createdTokenIds,purchasedTokenIds,activeListings,activeAuctions] = await Promise.all([
+                getUserCreatedNFTs(),
+                getUserPurchasedNFTs(),
+                getActiveListings(),
+                getActiveAuctions()
+            ]);
 
-        //update counts immediately
-        const marketPlaceTokenIds = [...new Set([...activeListings,...activeAuctions])];
-        setTotalCount({
-            created:createdTokenIds.length,
-            purchased:purchasedTokenIds.length,
-            marketplace:marketPlaceTokenIds.length
-        });
-
-        //load metadata in smaller batches for smoother user experience
-        const loadNftBatch = async(tokenIds)=>{
-            if(tokenIds.length === 0) return [];
-
-            const nftPromises = tokenIds.map(async(tokenId)=>{
-                try {
-                    const[metadata,info] = await Promise.all([
-                        getNFTMetadata(tokenId),
-                        getNftInfo(tokenId)
-                    ]);
-
-                    const processedInfo = {...info};
-
-                    if(processedInfo.price !== undefined && processedInfo.price!== null ){
-                        try {
-                            processedInfo.price = BigNumber.from(processedInfo.price);
-                        } catch (error) {
-                            /* console.warn("error converting number to bignumber",processedInfo.price,error); */
-                            processedInfo.price = BigNumber.from(0);
-                        }
-                    }else{
-                        processedInfo.price = BigNumber.from(0);
-                    }
-
-                    if (processedInfo.highestBid !== undefined && processedInfo.highestBid !== null) {
-                        try {
-                            processedInfo.highestBid = BigNumber.from(processedInfo.highestBid);
-                        } catch (e) {
-                            /* console.warn(`Error converting highestBid to BigNumber for NFT ${tokenId}:`, processedInfo.highestBid, e); */
-                            processedInfo.highestBid = BigNumber.from(0);
-                        }
-                    } else {
-                        processedInfo.highestBid = BigNumber.from(0); 
-                    }
-                    return {tokenId,metadata,info:processedInfo};
-
-                } catch (error) {
-                    console.error(`Error loading NFT ${tokenId}:`, error);
-                    return null;
-                }
+            //update counts immediately
+            const marketPlaceTokenIds = [...new Set([...activeListings,...activeAuctions])];
+            setTotalCount({
+                created:createdTokenIds.length,
+                purchased:purchasedTokenIds.length,
+                marketplace:marketPlaceTokenIds.length
             });
 
-            const results = await Promise.all(nftPromises);
-            return results.filter(Boolean); // Filter out null values
+            //load metadata in smaller batches for smoother user experience
+            const loadNftBatch = async(tokenIds)=>{
+                if(tokenIds.length === 0) return [];
+
+                const nftPromises = tokenIds.map(async(tokenId)=>{
+                    try {
+                        const[metadata,info] = await Promise.all([
+                            getNFTMetadata(tokenId),
+                            getNftInfo(tokenId)
+                        ]);
+
+                        const processedInfo = {...info};
+
+                        if(processedInfo.price !== undefined && processedInfo.price!== null ){
+                            try {
+                                processedInfo.price = BigNumber.from(processedInfo.price);
+                            } catch (error) {
+                                /* console.warn("error converting number to bignumber",processedInfo.price,error); */
+                                processedInfo.price = BigNumber.from(0);
+                            }
+                        }else{
+                            processedInfo.price = BigNumber.from(0);
+                        }
+
+                        if (processedInfo.highestBid !== undefined && processedInfo.highestBid !== null) {
+                            try {
+                                processedInfo.highestBid = BigNumber.from(processedInfo.highestBid);
+                            } catch (e) {
+                                /* console.warn(`Error converting highestBid to BigNumber for NFT ${tokenId}:`, processedInfo.highestBid, e); */
+                                processedInfo.highestBid = BigNumber.from(0);
+                            }
+                        } else {
+                            processedInfo.highestBid = BigNumber.from(0); 
+                        }
+                        return {tokenId,metadata,info:processedInfo};
+
+                    } catch (error) {
+                        console.error(`Error loading NFT ${tokenId}:`, error);
+                        return null;
+                    }
+                });
+
+                const results = await Promise.all(nftPromises);
+                return results.filter(Boolean); 
+            }
+
+            // Load NFTs for each category
+            const[createdWithMetadata,purchasedWithMetadata,marketplaceWithMetadata] = await Promise.all([
+                loadNftBatch(createdTokenIds),
+                loadNftBatch(purchasedTokenIds),
+                loadNftBatch(marketPlaceTokenIds)
+            ]);
+
+            setAllNfts({
+                created: createdWithMetadata,
+                purchased: purchasedWithMetadata,
+                marketplace: marketplaceWithMetadata
+            });
+            
+        }catch(error){
+            console.error("error loading nft data",error);
+        } finally{
+            setDataLoading(false);
         }
-
-        // Load NFTs for each category
-        const[createdWithMetadata,purchasedWithMetadata,marketplaceWithMetadata] = await Promise.all([
-            loadNftBatch(createdTokenIds),
-            loadNftBatch(purchasedTokenIds),
-            loadNftBatch(marketPlaceTokenIds)
-        ]);
-
-        setAllNfts({
-            created: createdWithMetadata,
-            purchased: purchasedWithMetadata,
-            marketplace: marketplaceWithMetadata
-        });
-        
-    }catch(error){
-        console.error("error loading nft data",error);
-    } finally{
-        setDataLoading(false);
-    }
-},[isConnected,account,getUserCreatedNFTs,getUserPurchasedNFTs,getActiveListings,getActiveAuctions,getNFTMetadata,getNftInfo]);
+    },[isConnected,account,getUserCreatedNFTs,getUserPurchasedNFTs,getActiveListings,getActiveAuctions,getNFTMetadata,getNftInfo]);
 
     //load withdrawabale balance
     const loadWithdrawableBalance = useCallback(async() => {
@@ -685,7 +685,7 @@ const UserDashboard = () =>{
                                             txLoading={txLoading}
                                             txError={txError}
                                             loadNFTData={loadNFTData}
-                                            showOwnerActions={activeTab === 'created' || activeTab === 'purchased'}
+                                            showOwnerActions={nft.info?.owner?.toLowerCase() === account?.toLowerCase()}
                                         />
                                     ))}
                                 </div>

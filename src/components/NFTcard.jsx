@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { formatEther } from "ethers/lib/utils";
-import { Tag, Clock, DollarSign, Hammer, Ban, Gavel, HandCoins, ExternalLink, Loader2 } from 'lucide-react';
+import { Tag, Clock, DollarSign, Hammer, Ban, Gavel, HandCoins, ExternalLink, Loader2 ,X,AlertTriangle} from 'lucide-react';
 import { SiEthereum } from 'react-icons/si';
 import { BigNumber } from "ethers";
 import ListForSaleModal from "./ListForSaleModal";
 import CreateAuctionModal from "./CreateAuctionModal";
 import PlaceBidModal from "./PlaceBidModal";
+import BuyConfirmationModal from "./BuyConfirmationModal";
 
 const NFTCard = ({
     nft,
@@ -20,10 +21,12 @@ const NFTCard = ({
     const [showListModal, setShowListModal] = useState(false);
     const [showAuctionModal, setShowAuctionModal] = useState(false);
     const [showBidModal, setShowBidModal] = useState(false);
+    const [showBuyConfirmationModal,setShowByConfirmationModal] = useState(false);
 
     const isListedForSale = nft.info?.isListed;
     const isAuction = nft.info?.isAuctioned;
     const isOwnedByUser = showOwnerActions;
+
 
     // Memoize computed values
     const auctionHasEnded = useMemo(() => {
@@ -76,17 +79,39 @@ const NFTCard = ({
     const handleOpenBidModal = useCallback(() => setShowBidModal(true), []);
     const handleCloseBidModal = useCallback(() => setShowBidModal(false), []);
 
+    const handleOpenBuyConfirmation = useCallback(()=> setShowByConfirmationModal(true),[]);
+    const handleCloseBuyConfirmation = useCallback(()=> setShowByConfirmationModal(false),[]);
+
     // Memoized buy handler
     const handleBuyClick = useCallback(() => {
-        const priceEth = nft.info?.price ? formatEther(BigNumber.from(nft.info.price)) : 'N/A';
-        if (confirm(`Are you sure you want to buy ${nftDisplayData.name} for ${priceEth} ETH?`)) {
-            onBuyNft(nft.tokenId);
+        if (typeof onBuyNft !== 'function') {
+            console.error('onBuyNft is not a function. Make sure it is passed as a prop to NFTCard.');
+            alert('Error: Purchase function is not available. Please refresh the page and try again.');
+            return;
         }
-    }, [nft.info?.price, nftDisplayData.name, nft.tokenId, onBuyNft]);
+        handleOpenBuyConfirmation();
+    }, [onBuyNft,handleOpenAuctionModal]);
+
+    //handle confirm purchase
+    const handleConfirmPurchase = useCallback(()=>{
+        if(typeof onBuyNft === 'function'){
+            onBuyNft(nft.tokenId);
+            setShowByConfirmationModal(false);
+        }else{
+            console.error("on buy nft function is not available");
+            alert("buy function no found");
+            setShowByConfirmationModal(false);
+        }
+    },[nft.tokenId , onBuyNft]);
 
     // Memoized finalize auction handler
     const handleFinalizeAuction = useCallback(() => {
-        onFinalizeAuction(nft.tokenId);
+        if(typeof onFinalizeAuction === 'function'){
+            onFinalizeAuction(nft.tokenId);
+        }else{
+            console.error('onFinalizeAuction is not a function');
+            alert('Error: Finalize auction function is not available.');
+        }
     }, [nft.tokenId, onFinalizeAuction]);
 
     // Memoized time remaining calculation
@@ -152,10 +177,8 @@ const NFTCard = ({
     const buyButtonPrice = useMemo(() => {
         if (isListedForSale && nft.info?.price) {
             const priceInEth = formatEther(BigNumber.from(nft.info.price));
-            console.log('Buy button - formatEther result:', priceInEth);
             
             const result = parseFloat(priceInEth).toString();
-            console.log('Buy button - final result:', result);
             
             return result;
         }
@@ -272,7 +295,7 @@ const NFTCard = ({
                         </>
                     ) : (
                         <>
-                            {isListedForSale && (
+                            {!isOwnedByUser && isListedForSale && typeof onBuyNft === 'function' && (
                                 <button
                                     onClick={handleBuyClick}
                                     disabled={txLoading}
@@ -282,7 +305,7 @@ const NFTCard = ({
                                     {txLoading ? 'Buying...' : `Buy for ${buyButtonPrice} ETH`}
                                 </button>
                             )}
-                            {isAuction && !auctionHasEnded && (
+                            {!isOwnedByUser && isAuction && !auctionHasEnded && (
                                 <button
                                     onClick={handleOpenBidModal}
                                     disabled={txLoading}
@@ -325,6 +348,14 @@ const NFTCard = ({
                 tokenId={nft.tokenId}
                 currentHighestBid={currentHighestBidForModal}
                 txLoading={txLoading}
+            />
+            <BuyConfirmationModal
+                isOpen={showBuyConfirmationModal}
+                onClose={handleCloseBuyConfirmation}
+                onConfirm={handleConfirmPurchase}
+                nftName={nftDisplayData.name}
+                price={buyButtonPrice}
+                loading={txLoading}
             />
         </div>
     );
