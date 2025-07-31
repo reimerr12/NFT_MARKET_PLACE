@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ethers } from 'ethers';
 import { X, Gavel, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import Portal from './Portal';
 import { parseEther } from 'ethers/lib/utils';
@@ -46,26 +47,69 @@ const CreateAuctionModal=({isOpen,onClose,onCreate,tokenId,txLoading})=>{
       }
     },[status]);
 
+    //will start here tomorrow
     const handleSubmit = async (e) =>{
         e.preventDefault();
-        setStatus('pending');
+        
+        const reservedPriceValue = parseFloat(reservePrice);
+        const durationValue = parseInt(duration);
+
+        if(!reservePrice || reservedPriceValue <= 0 || isNaN(reservedPriceValue)){
+          setStatus('error-invalid-price');
+          return;
+        }
+
+        if(!durationValue || durationValue <= 0 || isNaN(durationValue)){
+          setStatus("error-invalid-duration");
+          return;
+        }
+
+        if(isSubmitting || txLoading) return;
+
+        setIsSubmitting(true);
+
         try {
-            if(!reservePrice || parseFloat(reservePrice) <= 0 || !duration || parseInt(duration)<=0){
-                throw new Error("please enter a valid reserved price and a duration");
+          if(!account || !isConnected){
+            setStatus("pending connection");
+
+            await connectWallet();
+
+            let attempts = 0;
+            while((!account || !isConnected) && attempts <=10){
+              await new Promise(resolve => setTimeout(resolve,300));
+              attempts++;
             }
 
-            const reservedPriceInWei = parseEther(reservePrice);
-            const durationInHours = parseInt(duration);
-            await onCreate(tokenId,reservedPriceInWei,durationInHours);
-            setStatus('success');
-            setTimeout(handleClose,2000);
+            if(!account || !isConnected){
+              throw new Error("failed to connect wallet");
+            }
+          }
+
+          setStatus('pending');
+
+          const reservedPriceInWei = ethers.utils.parseEther(reservePrice);
+          const durationInHours = parseInt(duration);
+
+          await new Promise(resolve => setTimeout(resolve,300));
+
+          await onCreate(tokenId,reservedPriceInWei,durationInHours);
+
+          setStatus('success');
+
+          setTimeout(()=>{
+            handleClose();
+          },1500);
         } catch (error) {
-            console.error('there is and error in the create auction modal',error);
-            setStatus('error');
+          console.error('there is an error in the create auction modal', error);
+          setStatus('error');
+        } finally {
+          setIsSubmitting(false);
         }
     }
 
     if(!isOpen) return null;
+
+    const isLoading = txLoading || isSubmitting || isConnecting || status === 'pending' || status === 'pending-connect';
 
     return (
      <Portal>
@@ -73,7 +117,9 @@ const CreateAuctionModal=({isOpen,onClose,onCreate,tokenId,txLoading})=>{
           <div className="bg-[#202225] rounded-xl shadow-2xl w-full max-w-md p-6 relative transform scale-95 animate-scale-in border border-[#34373B]">
             <button
               onClick={handleClose}
+              type='button'
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-200 transition-colors duration-200 rounded-full p-1 hover:bg-[#34373B]"
+              disabled={isLoading}
             >
               <X className="w-6 h-6" />
             </button>
@@ -91,11 +137,12 @@ const CreateAuctionModal=({isOpen,onClose,onCreate,tokenId,txLoading})=>{
                   type="number"
                   id="reservePrice"
                   value={reservePrice}
-                  onChange={(e) => setReservePrice(e.target.value)}
+                  onChange={handleReservedPriceChange}
                   min="0.0001"
                   step="any"
                   className="mt-1 block w-full px-4 py-2 border border-[#474A50] rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-[#34373B] text-white placeholder-gray-400 transition-colors duration-200"
                   placeholder="e.g. 0.1"
+                  disabled={isLoading}
                   required
                 />
               </div>
@@ -108,26 +155,32 @@ const CreateAuctionModal=({isOpen,onClose,onCreate,tokenId,txLoading})=>{
                   type="number"
                   id="duration"
                   value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
+                  onChange={handleDurationChange}
                   min="1"
                   step="1"
                   className="mt-1 block w-full px-4 py-2 border border-[#474A50] rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 bg-[#34373B] text-white placeholder-gray-400 transition-colors duration-200"
                   placeholder="e.g. 24"
+                  disabled={isLoading} 
                   required
                 />
               </div>
 
               <button
                 type="submit"
-                disabled={txLoading || status === 'pending'}
+                disabled={isLoading || !reservePrice || !duration} 
                 className="w-full flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-500 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
               >
-                {txLoading || status === 'pending' ? (
-                  <Loader2 className="animate-spin h-5 w-5 mr-3" />
-                ) : (
-                  <Gavel className="h-5 w-5 mr-3" />
-                )}
-                {txLoading || status === 'pending' ? 'Creating Auction...' : 'Create Auction'}
+               {isLoading ? (
+                            <>
+                              <Loader2 className="animate-spin h-5 w-5 mr-3" />
+                                {status === 'pending-connect' ? 'Connecting Wallet...' : 'Creating Auction...'}
+                            </>
+                            ) : (
+                              <>
+                                  <Gavel className="h-5 w-5 mr-3" />
+                                  Create Auction
+                              </>
+                        )}
               </button>
 
               {status === 'success' && (
@@ -143,6 +196,27 @@ const CreateAuctionModal=({isOpen,onClose,onCreate,tokenId,txLoading})=>{
                   <span>Failed to create auction. Please try again.</span>
                 </div>
               )}
+
+              {status === 'error-invalid-price' && (
+                <div className="mt-4 flex items-center justify-center text-red-500">
+                    <AlertCircle className="h-5 w-5 mr-2" />
+                    <span>Please enter a valid positive reserve price.</span>
+                </div>
+              )}
+
+              {status === 'error-invalid-duration' && (
+                <div className="mt-4 flex items-center justify-center text-red-500">
+                    <AlertCircle className="h-5 w-5 mr-2" />
+                    <span>Please enter a valid positive reserve price.</span>
+                </div>
+              )}
+
+              {(!account || !isConnected) && !isLoading && (
+                <div className="mt-4 flex items-center justify-center text-yellow-400">
+                    <AlertCircle className="h-5 w-5 mr-2" />
+                    <span>Wallet not connected. Please connect to create auction.</span>
+                </div>
+                )}
             </form>
           </div>
         </div>

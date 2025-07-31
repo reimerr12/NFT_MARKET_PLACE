@@ -197,7 +197,7 @@ const useNFT = ()=>{
             }
 
             //Approve the marketplace to transfer the NFT 
-            const ImagenftContract = new ethers.Contract(IMAGE_NFT_ABI,IMAGE_NFT_ABI,currentSigner);
+            const ImagenftContract = new ethers.Contract(IMAGE_NFT_ADDRESS,IMAGE_NFT_ABI,currentSigner);
             console.log(`approving marketplace for auction`);
             const approveTx = await ImagenftContract.approve(NFT_MARKETPLACE_ADDRESS,tokenId);
             await approveTx.wait();
