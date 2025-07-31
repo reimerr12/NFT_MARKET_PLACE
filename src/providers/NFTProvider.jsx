@@ -424,15 +424,15 @@ const useNFT = ()=>{
 
             const { marketPLaceContract } = getReadOnlyContracts();
             
-            console.log('Getting NFT info for tokenId:', tokenId);
+            /* console.log('Getting NFT info for tokenId:', tokenId); */
             const nftInfo = await marketPLaceContract.getNFTInfo(tokenId);
             
-            console.log('Raw contract response:', {
+            /* console.log('Raw contract response:', {
                 tokenId,
                 price: nftInfo.price.toString(),
                 priceInEth: ethers.utils.formatEther(nftInfo.price),
                 isListed: nftInfo.isListed
-            });
+            }); */
 
             return {
                 owner: nftInfo.owner,

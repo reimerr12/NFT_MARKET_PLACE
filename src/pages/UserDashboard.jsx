@@ -9,7 +9,7 @@ import NFTCard from "../components/NFTcard";
 import MintNFTModal from "../components/MintNFTModal";
 import { meta } from "@eslint/js";
 
-const DEFAULT_ITEMS_PER_PAGE = 12;
+const DEFAULT_ITEMS_PER_PAGE = 8;
 const ITEMS_PER_PAGE_OPTIONS = [8,14,24,36,40];
 
 const UserDashboard = () =>{
@@ -61,10 +61,10 @@ const UserDashboard = () =>{
     });
 
     //default page to one
-    useEffect(()=>{
+    // Keep this one and update it
+    useEffect(() => {
         setCurrentPage(1);
-    },[searchQuerry,activeTab,sortBy,itemsPerPage]);
-
+    }, [searchQuerry, activeTab, sortBy, itemsPerPage, filters.priceRange.min, filters.priceRange.max, filters.status]);
     //load data while wallet conencts
     useEffect(()=>{
         if(isConnected && account){
@@ -244,6 +244,7 @@ const UserDashboard = () =>{
     }
 
     const filteredAndSortedNfts = useMemo(()=>{
+        if(!allNfts[activeTab]) return [];
         let nfts = allNfts[activeTab] || [];
 
         if(searchQuerry.trim()){
@@ -284,19 +285,23 @@ const UserDashboard = () =>{
                 break;
         }
         return nfts;
-    },[allNfts,activeTab,searchQuerry,sortBy,applyFilters]);
+    },[allNfts,activeTab, searchQuerry, sortBy, applyFilters, filters.priceRange.min, filters.priceRange.max, filters.status]);
+
 
     //memoized pagination
     const paginatedNFTs = useMemo(()=>{
+        if(!filteredAndSortedNfts?.length) return [];
+
         const startIndex = (currentPage - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
         return filteredAndSortedNfts.slice(startIndex,endIndex);
     },[filteredAndSortedNfts,currentPage,itemsPerPage]);
 
     //calculate pagination info
-    const totalPages = Math.ceil(filteredAndSortedNfts.length / itemsPerPage);
-    const hasNextPage = currentPage < totalPages;
-    const hasPrevPage = currentPage > 1;
+    const totalPages = (!filteredAndSortedNfts?.length) ? 0 : Math.ceil(filteredAndSortedNfts.length/itemsPerPage);
+    const hasNextPage = !dataLoading && totalPages > 0 && currentPage < totalPages;
+    const hasPrevPage = !dataLoading && currentPage > 1;
+
 
     //event handlers
     const handleMintNFT = async(imageFile,metadata,royaltyBps)=>{
@@ -651,7 +656,7 @@ const UserDashboard = () =>{
 
                         {/* NFT-DISPLAY-AREA */}
                         <div className="p-6">
-                            {dataLoading && filteredAndSortedNfts.length === 0 ? (
+                            {dataLoading && allNfts[activeTab]?.length ===0 ? (
                                 <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                                     <Loader2 className="w-10 h-10 animate-spin mb-4 text-blue-500" />
                                     <p className="text-lg font-medium">loading nfts...</p>
@@ -692,15 +697,19 @@ const UserDashboard = () =>{
                             )}
 
                             {/* pagination */}
-                            {totalPages > 1 && (
+                            {!dataLoading &&totalPages > 1 && (
                                 <div className="flex justify-center items-center space-x-8 mt-4">
-                                    <button onClick={()=>handlePageChange(currentPage -1)} disabled={!hasPrevPage || dataLoading} className="p-3 bg-gray-700 rounded-xl hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-white">
+                                    <button onClick={()=>handlePageChange(currentPage -1)} disabled={!hasPrevPage} className="p-3 bg-gray-700 rounded-xl hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-white">
                                         <ChevronLeft className="w-5 h-5" />
                                     </button>
+
+
                                     <span className="text-gray-300 font-medium">
                                         Page {currentPage} of {totalPages}
                                     </span>
-                                    <button onClick={()=>handlePageChange(currentPage + 1)} disabled={!hasPrevPage || dataLoading} className="p-3 bg-gray-700 rounded-xl hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-white">
+
+
+                                    <button onClick={()=>handlePageChange(currentPage + 1)} disabled={!hasNextPage} className="p-3 bg-gray-700 rounded-xl hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-white">
                                         <ChevronRight className="w-5 h-5" />
                                     </button>
                                 </div>
