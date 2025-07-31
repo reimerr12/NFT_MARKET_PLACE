@@ -438,8 +438,8 @@ const useNFT = ()=>{
                 owner: nftInfo.owner,
                 isListed: nftInfo.isListed,
                 isAuctioned: nftInfo.isAuctioned,
-                price: nftInfo.price, // Keep as BigNumber
-                highestBid: nftInfo.highestBid, // Keep as BigNumber
+                price: nftInfo.price, 
+                highestBid: nftInfo.highestBid, 
                 auctionEndTime: nftInfo.auctionEndTime.toString()
             };
         } catch (error) {

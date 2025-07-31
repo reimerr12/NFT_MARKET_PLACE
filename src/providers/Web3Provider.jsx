@@ -47,8 +47,8 @@ export const Web3Provider = ({children}) =>{
     const[isConnected,setIsConnected] = useState(false);
     const[isConnecting,setIsConnecting] = useState(false);
     const[balance,setBalance] = useState('0');
-    const [contractOwner, setContractOwner] = useState(null);
-    const [contract, setContract] = useState(null);
+    const[contractOwner, setContractOwner] = useState(null);
+    const[contract, setContract] = useState(null);
 
     const contractAddress = NFT_MARKETPLACE_ADDRESS;
     const contractABI = NFT_MARKETPLACE_ABI;

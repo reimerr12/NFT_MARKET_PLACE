@@ -214,7 +214,7 @@ const UserDashboard = () =>{
             //status filter
             if(filters.status !== 'all'){
                 if(filters.status === 'listed' && !nft.info?.isListed) return false;
-                if(filters.status === 'auction' && !nft.info?.isAuction) return false;
+                if(filters.status === 'auction' && !nft.info?.isAuctioned) return false;
                 if(filters.status === 'sold' && !nft.info?.isSold) return false;
             }
             
