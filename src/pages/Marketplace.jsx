@@ -7,8 +7,8 @@ import useNFT from "../providers/NFTProvider";
 import NFTCard from "../components/NFTcard";
 import { useWeb3 } from "../providers/Web3Provider";
 
-const Marketplace = ()=>{
-
+const Marketplace = () =>{
+    
 }
 
 export default Marketplace;
