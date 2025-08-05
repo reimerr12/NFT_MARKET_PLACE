@@ -195,9 +195,12 @@ const MosaicNFTCard = ({nft,account,onByuNFT,onPlaceBid,onFinalizeAuction,onCanc
     },[txLoading,statusChecks.canBuy,statusChecks.canBid,statusChecks.isAuctionEnded,showOwnerActions]);
 
     const sizeClasses = {
-        small: "row-span-1",
-        medium: "row-span-2", 
-        large: "row-span-3"
+        small: "row-span-1 col-span-1",
+        medium: "row-span-2 col-span-1", 
+        large: "row-span-2 col-span-2",
+        wide: "row-span-1 col-span-2",
+        tall: "row-span-3 col-span-1",
+        featured: "row-span-3 col-span-2"
     };
 
 }
