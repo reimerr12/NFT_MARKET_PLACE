@@ -203,5 +203,24 @@ const MosaicNFTCard = ({nft,account,onByuNFT,onPlaceBid,onFinalizeAuction,onCanc
         featured: "row-span-3 col-span-2"
     };
 
+    return(
+        <div className={`relative bg-[#34373B] rounded-xl overflow-hidden border border-gray-700 hover:border-blue-500/50 transition-all duration-300 cursor-pointer ${sizeClasses[size || 'medium']}`}
+            onMouseEnter={()=> setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(true)}
+            style={{
+                minHeight: size === 'small' ? '200px' :
+                           size === 'wide' ? '200px' :
+                           size === 'large' ? '400px' :
+                           size === 'medium' ? '300px' :
+                           size === 'tall' ? '400px' :
+                           size === 'featured' ? '500px' : '400px'
+            }}  
+        >
+            <div className="relative w-full h-full">
+
+            </div>
+
+        </div>
+    )
 }
 export default MosaicNFTCard;
