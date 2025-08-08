@@ -4,7 +4,7 @@ import { ShoppingCart, Heart, Eye, Loader2, Tag, Clock, Gavel } from "lucide-rea
 import { BigNumber } from "ethers";
 import { formatEther } from "ethers/lib/utils";
 
-const MosaicNFTCard = ({
+const MoSaicNFTCard = ({
     nft,
     account,
     onBuyNFT,
@@ -211,34 +211,32 @@ const MosaicNFTCard = ({
         return <Eye className="w-4 h-4" />;
     }, [txLoading, statusChecks.canBuy, statusChecks.canBid]);
 
-
-    const getSizeClasses = () => {
-        switch (size) {
-            case 'small':
-                return 'h-48'; 
-            case 'medium':
-                return 'h-64';
-            case 'large':
-                return 'h-80';
-            case 'wide':
-                return 'h-48'; 
-            case 'tall':
-                return 'h-96';
-            case 'featured':
-                return 'h-80';
-            default:
-                return 'h-64';
-        }
-    };
-
+    // Size-based styling
     const isSmall = size === 'small';
     const isWide = size === 'wide';
 
+    const sizeClasses = {
+        small: "row-span-1 col-span-1",
+        medium: "row-span-2 col-span-1",
+        large: "row-span-2 col-span-2",
+        wide: "row-span-1 col-span-2",
+        tall: "row-span-3 col-span-1",
+        featured: "row-span-3 col-span-2"
+    };
+
     return (
         <div
-            className={`relative bg-[#1a1d21] rounded-xl overflow-hidden border border-gray-800 hover:border-blue-500/70 transition-all duration-300 cursor-pointer group w-full ${getSizeClasses()}`}
+            className={`relative bg-[#1a1d21] rounded-xl overflow-hidden border border-gray-800 hover:border-blue-500/70 transition-all duration-300 cursor-pointer group ${sizeClasses[size || 'medium']}`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            style={{
+                minHeight: size === 'small' ? '200px' :
+                           size === 'wide' ? '200px' :
+                           size === 'large' ? '400px' :
+                           size === 'medium' ? '300px' :
+                           size === 'tall' ? '450px' :
+                           size === 'featured' ? '500px' : '350px'
+            }}
         >
             {/* Image Container */}
             <div className="relative w-full h-full">
@@ -407,4 +405,4 @@ const MosaicNFTCard = ({
     );
 };
 
-export default MosaicNFTCard;
+export default MoSaicNFTCard;

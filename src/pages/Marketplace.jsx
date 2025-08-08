@@ -5,10 +5,125 @@ import { BigNumber } from "ethers";
 import { formatEther } from "ethers/lib/utils";
 import useNFT from "../providers/NFTProvider";
 import NFTCard from "../components/NFTcard";
+import MosaicNFTCard from "../components/MosaicNFTCard";
 import { useWeb3 } from "../providers/Web3Provider";
 
+const DEFAULT_ITEMS_PER_PAGE = 25;
+const ITEMS_PER_PAGE_OPTIONS = [25,35,45,55];
+
 const Marketplace = () =>{
-    
+    const{isConnected,account} = useWeb3();
+    const {
+        loading: txLoading,
+        error: txError,
+        buyNFT,
+        placeBid,
+        getActiveListings,
+        getActiveAuctions,
+        getNftInfo,
+        getNFTMetadata,
+        finalizeAuction,
+        cancelAuction,
+        cancelListing,
+        setError,
+    } = useNFT();
+
+    const[allMarketplaceNfts,setAllmarketplaceNfts] = useState([]);
+    const[searchQuery,setSearchQuery] = useState('');
+    const[sortBy,setSortBy] = useState('newest');
+    const[viewMode,setViewMode] = useState('grid');
+    const[sideBarOpen,setSideBarOpen] = useState(false);
+    const[filters,setFilters] =  useState({
+        priceRange:{min:'',max:''},
+        status:'all'
+    });
+    const[dataLoading,setDataLoading] = useState(false);
+
+    //pagination
+    const[currentPage,setCurrentPage] = useState(1);
+    const[itemsPerPage,setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
+
+    useEffect(()=>{
+        setCurrentPage(1);
+    },[searchQuery,sortBy,itemsPerPage,filters]);
+
+    useEffect(()=>{
+        loadMarketplaceNftData();
+    },[isConnected,account]);
+
+    //main loading function
+    const loadMarketplaceNftData = useCallback(async()=>{
+        setDataLoading(true);
+        if (setError) setError(null);
+
+        try {
+            const[activeListings,activeAuctions] = await Promise.all([
+                getActiveListings(),
+                getActiveAuctions()
+            ]);
+
+            const marketPlaceTokenIds = [...new Set([...activeListings,...activeAuctions])];
+
+            const loadNftBatch = async(tokenIds)=>{
+                if(tokenIds.length === 0) return [];
+
+                const nftPromises = tokenIds.map(async(tokenId)=>{
+                    try {
+                        const[metadata , info] = await Promise.all([
+                            getNFTMetadata(tokenId),
+                            getNftInfo(tokenId)
+                        ]);
+
+                        const processedInfo = {...info};
+
+                        if(processedInfo.price !== undefined && processedInfo.price !== null){
+                            try {
+                                if(!BigNumber.isBigNumber(processedInfo.price)){
+                                    processedInfo.price = BigNumber.from(processedInfo.price.toString());
+                                }
+                            } catch (error) {
+                                console.warn("Error converting price to BigNumber", processedInfo.price, error);
+                                processedInfo.price = BigNumber.from(0);
+                            }
+                        }else{
+                            processedInfo.price = BigNumber.from(0);
+                        }
+
+                        if(processedInfo.highestBid !== undefined && processedInfo.highestBid !== null){
+                            try {
+                                if(!BigNumber.isBigNumber(processedInfo.highestBid)){
+                                    processedInfo.highestBid = BigNumber.from(processedInfo.highestBid.toString());
+                                }
+                            } catch (error) {
+                                console.warn(`Error converting highestBid to BigNumber for NFT ${tokenId}:`, processedInfo.highestBid, error);
+                                processedInfo.highestBid = BigNumber.from(0);
+                            }
+                        }else{
+                            processedInfo.highestBid = BigNumber.from(0);
+                        }
+
+                        return{tokenId,metadata,info:processedInfo};
+
+                    } catch (error) {
+                        console.error(`Error loading NFT ${tokenId}:`, error);
+                        return null;
+                    }
+                });
+
+                const results = await Promise.all(nftPromises);
+                return results.filter(Boolean);
+
+            }
+            const loadedMarketplaceNfts = await loadNftBatch(marketPlaceTokenIds);
+            setAllmarketplaceNfts(loadedMarketplaceNfts);
+        } catch (error) {
+            console.error("Error loading marketplace data:", err);
+            const errorMessage = err.message || "Failed to load marketplace NFTs.";
+            if (setError) setError(errorMessage);
+        }finally{
+            setDataLoading(false);
+        }
+    },[getActiveListings,getActiveAuctions,getNFTMetadata,getNftInfo,setError]);
 }
 
 export default Marketplace;
