@@ -118,7 +118,7 @@ const Marketplace = () =>{
             setAllmarketplaceNfts(loadedMarketplaceNfts);
         } catch (error) {
             console.error("Error loading marketplace data:", err);
-            const errorMessage = err.message || "Failed to load marketplace NFTs.";
+            const errorMessage = error.message || "Failed to load marketplace NFTs.";
             if (setError) setError(errorMessage);
         }finally{
             setDataLoading(false);
