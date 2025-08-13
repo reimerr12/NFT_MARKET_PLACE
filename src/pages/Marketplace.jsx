@@ -191,10 +191,10 @@ const Marketplace = () =>{
 
         switch(sortBy){
             case 'newest':
-                nfts = [...nfts].sort((a,b) => parseInt(b.tokenId) = parseInt(a.tokenId));
+                nfts = [...nfts].sort((a,b) => parseInt(b.tokenId) - parseInt(a.tokenId));
                 break;
             case 'oldest':
-                nfts = [...nfts].sort((a,b) => parseInt(a.tokenId) = parseInt(b.tokenId));
+                nfts = [...nfts].sort((a,b) => parseInt(a.tokenId) - parseInt(b.tokenId));
                 break;
             case 'price_high':
                 nfts= [...nfts].sort((a,b)=>{
