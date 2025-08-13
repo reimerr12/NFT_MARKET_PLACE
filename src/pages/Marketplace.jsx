@@ -124,6 +124,104 @@ const Marketplace = () =>{
             setDataLoading(false);
         }
     },[getActiveListings,getActiveAuctions,getNFTMetadata,getNftInfo,setError]);
+
+    //apply filters
+    const applyFilters = useCallback((nfts)=>{
+        return nfts.filter((nft)=>{
+            if(filters.priceRange.min || filters.priceRange.max){
+                let price = 0;
+
+                if(nft.info?.price && nft.info?.isListed){
+                    price = parseFloat(formatEther(nft.info?.price));
+                }
+                else if(nft.info?.isAuctioned && nft.info?.highestBid){
+                    price = parseFloat(formatEther(nft.info?.highestBid));
+                }
+
+                if(filters.priceRange.min && price < parseFloat(filters.priceRange.min)){
+                    return false;
+                }
+                if(filters.priceRange.max && price > parseFloat(filters.priceRange.max)){
+                    return false;
+                }
+            }
+
+            //status-filter
+            if(filters.status !== 'all'){
+                    if(filters.status === 'listed' && !nft.info?.isListed) return false;
+                    if(filters.status === 'auction' && !nft.info?.isAuctioned) return false;
+                }
+            return true;
+        });
+    },[filters]);
+
+    const getDisplayDataForSearch  = (nft) =>{
+        const metadata = nft.metadata || {};
+
+        let name = metadata.name || metadata.title || metadata.displayName;
+
+        if(!name && typeof metadata === 'object'){
+            const keys = Object.keys(metadata).filter((key)=>/^\d+$/.test(key)).sort((a,b)=> parseInt(a) - parseInt(b));
+            if(keys.length > 0){
+                name = keys.map((key)=> metadata[key]).join("");
+            }
+        }
+
+        if(!name){
+            name = `#NFT${nft.tokenId}`;
+        }
+
+        let description = metadata.description || metadata.desc || metadata.summary || '';
+
+        return{name,description};
+    }
+
+    const filteredAndSortedNfts = useMemo(()=>{
+
+        const nfts = allMarketplaceNfts;
+        if(searchQuery.trim()){
+            const query = searchQuery.toLocaleLowerCase();
+            nfts = nfts.filter((nft)=>{
+                const {name , description} = getDisplayDataForSearch(nft);
+                return(name.toLocaleLowerCase().includes(query) || description.toLocaleLowerCase().includes(query));
+            });
+        }
+
+        nfts = applyFilters(nfts);
+
+        switch(sortBy){
+            case 'newest':
+                nfts = [...nfts].sort((a,b) => parseInt(b.tokenId) = parseInt(a.tokenId));
+                break;
+            case 'oldest':
+                nfts = [...nfts].sort((a,b) => parseInt(a.tokenId) = parseInt(b.tokenId));
+                break;
+            case 'price_high':
+                nfts= [...nfts].sort((a,b)=>{
+                    const priceA = a.info?.isListed ? a.info?.price : (a.info?.highestBid || BigNumber.from(0));
+                    const priceB = b.info?.isListed ? b.info?.price : (b.info?.highestBid || BigNumber.from(0));
+                    return priceB.gt(priceA) ? 1 : priceA.lt(priceB)? -1 : 0;
+                });
+                break;
+            case 'price_low':
+                nfts = [...nfts].sort((a,b)=>{
+                    const priceA = a.info?.isListed ? a.info?.price : (a.info?.highestBid || BigNumber.from(0));
+                    const priceB = b.info?.isListed ? b.info?.price : (b.info?.highestBid || BigNumber.from(0));
+                    return priceA.gt(priceB) ? 1 : priceB.lt(priceA) ? -1 : 0;
+                });
+                break;
+                default:
+                break;
+        }
+        return nfts;
+    },[allMarketplaceNfts,searchQuery,sortBy,applyFilters]);
+
+    //mosaic-layout
+    const mosaicLayout = (nfts) =>{
+        return nfts.map((nft,index)=>{
+            
+        })
+    }
 }
 
 export default Marketplace;
