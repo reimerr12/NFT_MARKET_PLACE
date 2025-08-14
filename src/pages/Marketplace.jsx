@@ -12,7 +12,7 @@ const DEFAULT_ITEMS_PER_PAGE = 25;
 const ITEMS_PER_PAGE_OPTIONS = [25,35,45,55];
 
 const Marketplace = () =>{
-    const{isConnected,account} = useWeb3();
+    const{isConnected,account,provider} = useWeb3();
     const {
         loading: txLoading,
         error: txError,
@@ -46,10 +46,6 @@ const Marketplace = () =>{
     useEffect(()=>{
         setCurrentPage(1);
     },[searchQuery,sortBy,itemsPerPage,filters]);
-
-    useEffect(()=>{
-        loadMarketplaceNftData();
-    },[isConnected,account]);
 
     //main loading function
     const loadMarketplaceNftData = useCallback(async()=>{
@@ -117,7 +113,7 @@ const Marketplace = () =>{
             const loadedMarketplaceNfts = await loadNftBatch(marketPlaceTokenIds);
             setAllmarketplaceNfts(loadedMarketplaceNfts);
         } catch (error) {
-            console.error("Error loading marketplace data:", err);
+            console.error("Error loading marketplace data:", error);
             const errorMessage = error.message || "Failed to load marketplace NFTs.";
             if (setError) setError(errorMessage);
         }finally{
@@ -178,12 +174,12 @@ const Marketplace = () =>{
 
     const filteredAndSortedNfts = useMemo(()=>{
 
-        const nfts = allMarketplaceNfts;
+        let nfts = allMarketplaceNfts;
         if(searchQuery.trim()){
-            const query = searchQuery.toLocaleLowerCase();
+            const query = searchQuery.toLowerCase();
             nfts = nfts.filter((nft)=>{
                 const {name , description} = getDisplayDataForSearch(nft);
-                return(name.toLocaleLowerCase().includes(query) || description.toLocaleLowerCase().includes(query));
+                return(name.toLowerCase().includes(query) || description.toLowerCase().includes(query));
             });
         }
 
@@ -217,10 +213,135 @@ const Marketplace = () =>{
     },[allMarketplaceNfts,searchQuery,sortBy,applyFilters]);
 
     //mosaic-layout
-    const mosaicLayout = (nfts) =>{
+    const getMosaicLayout = (nfts) =>{
         return nfts.map((nft,index)=>{
-            
+            const patterns =[
+                'small',
+                'small',
+                'medium',
+                'large',
+                'small',
+                'medium',
+                'wide',
+                'small',
+                'tall',
+                'medium',
+                'small',
+                'featured'
+            ]
+
+            const size = patterns[index % patterns.length];
+
+            return {...nft,mosaicSize:size};
         })
+    };
+
+    const paginatedNFTS = useMemo(()=>{
+        if(!filteredAndSortedNfts?.length) return [];
+
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const sliced = filteredAndSortedNfts.slice(startIndex,endIndex);
+
+        return viewMode === 'mosaic' ? getMosaicLayout(sliced):sliced;
+    },[filteredAndSortedNfts,currentPage,itemsPerPage,viewMode]);
+
+    //caluclate pagination info
+    const totalPages = (!filteredAndSortedNfts?.length) ? 0 : Math.ceil(filteredAndSortedNfts.length/itemsPerPage);
+    const hasNextPage = !dataLoading && currentPage > 0 && currentPage < totalPages;
+    const hasprevPage = !dataLoading && currentPage > 1;
+
+    //event handlers
+    const handleBuyNFT = useCallback(async(tokenId)=>{
+        try {
+            await buyNFT(tokenId);
+            await loadMarketplaceNftData();
+            console.log('nft bought successfully');
+        } catch (error) {
+            console.error("Error buying NFT:", txError || error.message || "Unknown error");
+            throw error;
+        }
+    },[buyNFT,loadMarketplaceNftData,txError]);
+
+    const handlePlaceBid = useCallback(async(tokenId,bidAmount)=>{
+        try {
+            await placeBid(tokenId,bidAmount);
+            await loadMarketplaceNftData();
+            console.log("bid places successfully for token id",tokenId);
+        } catch (error) {
+            console.error("Error bidding for NFT:", txError || error.message || "Unknown error");
+            throw error;
+        }
+    },[placeBid,loadMarketplaceNftData,txError]);
+
+    const handleFinalizeAuction = useCallback(async(tokenId)=>{
+        try {
+            await finalizeAuction(tokenId);
+            await loadMarketplaceNftData();
+            console.log(`auction has been finalized for ${tokenId}`);
+        } catch (error) {
+            console.error("Error in finalizing nft NFT:", txError || error.message || "Unknown error");
+            throw error;
+        }
+    },[finalizeAuction,loadMarketplaceNftData,txError]);
+
+    const handleCancelListing = useCallback(async(tokenId)=>{
+        try {
+            await cancelListing(tokenId);
+            await loadMarketplaceNftData();
+            console.log(`listing for nft ${tokenId} has been cancelled`)
+        } catch (error) {
+            console.error("Error cancelling listing for NFT:", txError || error.message || "Unknown error");
+            throw error;
+        }
+    },[cancelListing,loadMarketplaceNftData,txError]);
+
+    const handleCancelAuction = useCallback(async(tokenId)=>{
+        try {
+            await cancelAuction(tokenId);
+            await loadMarketplaceNftData();
+            console.log(`Auction for NFT ${tokenId} cancelled successfully!`)
+        } catch (error) {
+            console.error("Error in handleCancelAuction", txError || error.message || "Unknown error");
+            throw error;
+        }
+    },[cancelAuction,loadMarketplaceNftData,txError]);
+
+    const handlePageChange = (page)=>{
+        setCurrentPage(page);
+        window.scrollTo({top:0,behavior:'smooth'});
+    }
+    const clearFilters = () =>{
+        setFilters({
+            priceRange:{max: '',min:''},
+            status:'all'
+        });
+        setSearchQuery('');
+        setSortBy('newest');
+    };
+
+    useEffect(()=>{
+        if(isConnected && account && provider){
+            loadMarketplaceNftData();
+        }
+    },[isConnected,account,provider,loadMarketplaceNftData]);
+
+    const displayError = txError;
+    
+    if(!isConnected){
+        return(
+            <div className="bg-[#202225] min-h-screen flex items-center justify-center p-4">
+                <div className="text-center bg-[#34373B] rounded-3xl shadow-2xl p-12 max-w-md w-full border border-gray-700">
+                    <div className="mb-8">
+                        <div className="h-20 w-20 bg-gradient-to-br from-blue-400 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
+                            <Wallet className="h-10 w-10 text-white" />
+                        </div>
+                        <h2 className="text-3xl font-bold text-white mb-4">Connect Your Wallet</h2>
+                        <p className="text-gray-300 text-lg leading-relaxed">Please connect your Web3 wallet to browse and interact with the NFT marketplace.</p>
+                    </div>
+                </div>
+            </div>
+        )
     }
 }
 

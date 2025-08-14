@@ -377,7 +377,6 @@ const useNFT = ()=>{
     //get active listings
     const getActiveListings = useCallback(async()=>{
         try {
-            setLoading(true);
             setError(null);
 
             const {marketPLaceContract} = getReadOnlyContracts();
@@ -390,15 +389,12 @@ const useNFT = ()=>{
             const errorMessage = error.message || 'failed to get active listings';
             setError(errorMessage);
             throw new Error(errorMessage);
-        } finally {
-            setLoading(false);
         }
     },[getReadOnlyContracts]);
 
     //get active auctions
     const getActiveAuctions = useCallback(async()=>{
         try {
-            setLoading(true);
             setError(null);
 
             const {marketPLaceContract} = getReadOnlyContracts();
@@ -411,15 +407,12 @@ const useNFT = ()=>{
             const errorMessage = error.message || 'failed to get active auctions';
             setError(errorMessage);
             throw new Error(errorMessage);
-        } finally {
-            setLoading(false);
         }
     },[getReadOnlyContracts]);
 
     //get info about the nfts
     const getNftInfo = useCallback(async(tokenId) => {
         try {
-            setLoading(true);
             setError(null);
 
             const { marketPLaceContract } = getReadOnlyContracts();
@@ -446,15 +439,12 @@ const useNFT = ()=>{
             const errorMessage = error.message || 'failed to get info of the nft';
             setError(errorMessage);
             throw new Error(errorMessage);
-        } finally {
-            setLoading(false);
         }
     }, [getReadOnlyContracts]);
 
     //get user created nfts
     const getUserCreatedNFTs = useCallback(async(userAddress = account)=>{
         try {
-            setLoading(true);
             setError(null);
 
             const {marketPLaceContract} = getReadOnlyContracts();
@@ -466,15 +456,12 @@ const useNFT = ()=>{
             const errorMessage = error.message || 'failed to get user created nft';
             setError(errorMessage);
             throw new Error(errorMessage);
-        } finally {
-            setLoading(false);
         }    
     },[getReadOnlyContracts,account]);
 
     //get user purchased nfts
     const getUserPurchasedNFTs = useCallback(async(userAddress = account)=>{
         try {
-            setLoading(true);
             setError(null);
 
             const {marketPLaceContract} = getReadOnlyContracts();
@@ -486,15 +473,12 @@ const useNFT = ()=>{
             const errorMessage = error.message || 'failed to get user created nft';
             setError(errorMessage);
             throw new Error(errorMessage);
-        } finally {
-            setLoading(false);
         }
     },[getReadOnlyContracts,account]);
     
     //get withdrawabale balance
     const getWithdrawableBalance = useCallback(async(userAddress = account)=>{
         try {
-            setLoading(true);
             setError(null);
 
             const {marketPLaceContract} = getReadOnlyContracts();
@@ -507,8 +491,6 @@ const useNFT = ()=>{
             const errorMessage = error.message || 'failed to fetch withdraw balance';
             setError(errorMessage);
             throw new Error(errorMessage);
-        } finally {
-            setLoading(false);
         }
     },[getReadOnlyContracts,account]);
 
@@ -538,7 +520,7 @@ const useNFT = ()=>{
             console.error("Error fetching NFT metadata:", error);
             throw new Error("Failed to fetch NFT metadata");
         }
-    });
+    },[getReadOnlyContracts]);
 
     //get royalty info
     const getRoyaltyInfo = useCallback(async (tokenId) => {
