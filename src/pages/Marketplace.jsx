@@ -343,6 +343,200 @@ const Marketplace = () =>{
             </div>
         )
     }
+
+    return (
+        <div className="min-h-screen bg-[#202225]">
+            {/* mobile-sidebar-display */}
+            {sideBarOpen && (
+                <div className="fixed inset-0 lg:hidden bg-black/50 z=40"/>
+            )}
+
+            {/* sidebar */}
+
+            <div className={`fixed top-16 bottom-0 left-0 z-30 w-80 bg-[#34373B] border-r border-gray-700 transform transition-transform duration-200 ease-in-out ${sideBarOpen ? 'translate-x-0': '-translate-x-full'} lg:translate-x-0 overflow-y-auto`}>
+
+                <div className="flex items-center justify-between p-6 border-b border-gray-600 lg:hidden ">
+                    <h2 className="text-xl text-white font-bold">Filters & Sort</h2>
+                    <button onClick={()=>setSideBarOpen(false)} className="p-2 rounded-lg hover:bg-gray-700 transition-colors">
+                        < X className="w-5 h-5 text-red-400" />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-8 h-full overflow-y-scroll">
+                    <div className="space-y-4">
+                        <h3 className="text-xl font-bold text-white flex items-center ">
+                            < BarChart3 className="h-8 w-8 mr-2 text-blue-500 " />
+                            Marketplace Stats
+                        </h3>
+                        <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-2xl p-4 border border-blue-500/30">
+                            <div className="flex items-center mb-2">
+                                <Globe className="h-10 w-10 mr-2 text-blue-500" />
+                                <p className="text-md text-blue-400">Available NFTs</p>
+                            </div>
+                            <p className="text-2xl font-bold text-white ml-2">{allMarketplaceNfts.length}</p>
+                        </div>
+                    </div>
+
+                    {/* search */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white flex items-center capitalize">
+                            <Search className="h-6 w-6 mr-2 text-blue-500 "/>
+                            search
+                        </h3>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                            <input 
+                                type="text" 
+                                placeholder="search"
+                                value={searchQuery}
+                                onChange={(e)=>setSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 border border-gray-600 bg-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-500 transition-all duration-200"
+                            />
+                        </div>
+                    </div>
+
+                    {/* price-range */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white flex items-center capitalize">
+                            <SiEthereum className="h-6 w-6 mr-2 text-blue-500" />
+                            Price Range (ETH)
+                        </h3>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-md font-medium text-gray-400 mb-1">Min</label>
+                                <input 
+                                    type="number" 
+                                    placeholder="0"
+                                    step='0.001'
+                                    value={filters.priceRange.min}
+                                    onChange={(e)=>{
+                                        setFilters((prev)=>({
+                                            ...prev,
+                                            priceRange: {...prev.priceRange, min:e.target.value}
+                                        }))
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-600 bg-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white text-sm"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-md font-medium text-gray-400 mb-1">Max</label>
+                                <input 
+                                    type="number" 
+                                    placeholder="0"
+                                    step='0.01'
+                                    value={filters.priceRange.max}
+                                    onChange={(e)=>{
+                                        setFilters((prev)=>({
+                                            ...prev,
+                                            priceRange:{...prev.priceRange.max, max:e.target.value}
+                                        }))
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-600 bg-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white text-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* status-filter */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white flex items-center capitalize">
+                            <Activity className="h-6 w-6 mr-2 text-blue-500"/>
+                            status
+                        </h3>
+                        <div className="space-y-3">
+                            {[
+                                {value:'all',label:'All Items',icon:Grid3x3},
+                                {value:'listed',label:'Fixed Price',icon:Tag},
+                                {value:'auction',label:'On Auction',icon:Clock}
+                            ].map((option)=>(
+                                <label key={option.value} className="flex items-center space-x-3 p-3 rounded-xl hover:bg-gray-700 transition-colors cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="status"
+                                        value={option.value}
+                                        checked={filters.status === option.value}
+                                        onChange={(e)=>{
+                                            setFilters((prev)=>({
+                                                ...prev,
+                                                status:e.target.value
+                                            }))
+                                        }}
+                                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 focus:ring-blue-500"
+                                    />
+                                    <option.icon className="h-5 w-5 text-gray-400" />
+                                    <span className="text-sm font-medium text-gray-300">{option.label}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+
+                    {/* sort-options */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white flex items-center capitalize">
+                            <ArrowUpDown className="h-6 w-6 mr-2 text-blue-500" />
+                            Sort By
+                        </h3>
+                        <select value={sortBy} onChange={(e)=>setSortBy(e.target.value)} className="w-full px-5 py-3 border border-gray-600 bg-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white transition-all duration-200">
+                            <option value="newest">Recently Listed</option>
+                            <option value="oldest">Oldest Listed</option>
+                            <option value="price_high">Price: High to Low</option>
+                            <option value="price_low">Price: Low to High</option>
+                        </select>
+                    </div>
+
+                    {/* clear-filter */}
+                    <button onClick={clearFilters} className="w-full py-3 px-4 bg-gray-700 text-gray-300 rounded-2xl hover:bg-gray-600 transition-colors font-medium capitalize">
+                            clear all filters
+                    </button>
+                </div>
+            </div>
+
+            {/* Main-content */}
+            <div className="lg:ml-80 min-h-screen pt-16">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-[#34373B] to-blue-400 border-b border-gray-700 top-0">
+                    <div className="px-6 py-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                                <button onClick={()=>setSideBarOpen(true)} className="p-2 rounded-lg hover:bg-gray-700 transition-colors lg:hidden">
+                                    <Menu className="w-5 h-5 text-gray-400" />
+                                </button>
+                                <div>
+                                    <h1 className="text-lg lg:text-2xl font-bold text-blue-500">
+                                        NFT Marketplace
+                                    </h1>
+                                    <p className="text-sm md:text-base text-gray-300 capitalize">
+                                        Discover and collect unique digital assets
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center space-x-4">
+                                <button onClick={loadMarketplaceNftData}
+                                        disabled={dataLoading}
+                                        className="flex items-center space-x-2 px-4 py-2 bg-[#202225] border-2 border-blue-500 hover:text-white text-blue-500 rounded-xl group transition-all duration-200 shadow-lg hover:shadow-xl font-semibold capitalize"        
+                                    >
+                                        {dataLoading ? (
+                                            <Loader2 className="animate-spin h-5 w-5" />
+                                        ):(
+                                            <RefreshCw className="h-5 w-5 group-hover:animate-spin" />
+                                        )}
+                                        <span>refresh</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* content-area */}
+                <div className="p-6">
+                    
+                </div>
+            </div>
+        </div>
+    )
 }
 
 export default Marketplace;
