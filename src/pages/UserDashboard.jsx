@@ -95,12 +95,41 @@ const UserDashboard = () =>{
                 getActiveAuctions()
             ]);
 
+            // Filter marketplace items to only include user's own listings/auctions
+            const userMarketplaceTokenIds = [];
+            
+            // Check each active listing to see if it belongs to the current user
+            for (const tokenId of activeListings) {
+                try {
+                    const nftInfo = await getNftInfo(tokenId);
+                    if (nftInfo.owner && nftInfo.owner.toLowerCase() === account.toLowerCase()) {
+                        userMarketplaceTokenIds.push(tokenId);
+                    }
+                } catch (error) {
+                    console.warn(`Error checking ownership for listing ${tokenId}:`, error);
+                }
+            }
+            
+            // Check each active auction to see if it belongs to the current user
+            for (const tokenId of activeAuctions) {
+                try {
+                    const nftInfo = await getNftInfo(tokenId);
+                    if (nftInfo.owner && nftInfo.owner.toLowerCase() === account.toLowerCase()) {
+                        // Avoid duplicates if an NFT is both listed and auctioned
+                        if (!userMarketplaceTokenIds.includes(tokenId)) {
+                            userMarketplaceTokenIds.push(tokenId);
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Error checking ownership for auction ${tokenId}:`, error);
+                }
+            }
+
             //update counts immediately
-            const marketPlaceTokenIds = [...new Set([...activeListings,...activeAuctions])];
             setTotalCount({
                 created:createdTokenIds.length,
                 purchased:purchasedTokenIds.length,
-                marketplace:marketPlaceTokenIds.length
+                marketplace:userMarketplaceTokenIds.length
             });
 
             //load metadata in smaller batches for smoother user experience
@@ -153,7 +182,7 @@ const UserDashboard = () =>{
             const[createdWithMetadata,purchasedWithMetadata,marketplaceWithMetadata] = await Promise.all([
                 loadNftBatch(createdTokenIds),
                 loadNftBatch(purchasedTokenIds),
-                loadNftBatch(marketPlaceTokenIds)
+                loadNftBatch(userMarketplaceTokenIds) // Changed from marketPlaceTokenIds to userMarketplaceTokenIds
             ]);
 
             setAllNfts({

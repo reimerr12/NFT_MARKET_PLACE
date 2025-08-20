@@ -7,7 +7,6 @@ import useNFT from "../providers/NFTProvider";
 import NFTCard from "../components/NFTcard";
 import MosaicNFTCard from "../components/MosaicNFTCard";
 import { useWeb3 } from "../providers/Web3Provider";
-
 const DEFAULT_ITEMS_PER_PAGE = 25;
 const ITEMS_PER_PAGE_OPTIONS = [25,35,45,55];
 
@@ -31,7 +30,7 @@ const Marketplace = () =>{
     const[allMarketplaceNfts,setAllmarketplaceNfts] = useState([]);
     const[searchQuery,setSearchQuery] = useState('');
     const[sortBy,setSortBy] = useState('newest');
-    const[viewMode,setViewMode] = useState('grid');
+    const[viewMode,setViewMode] = useState('mosaic');
     const[sideBarOpen,setSideBarOpen] = useState(false);
     const[filters,setFilters] =  useState({
         priceRange:{min:'',max:''},
@@ -48,14 +47,14 @@ const Marketplace = () =>{
     },[searchQuery,sortBy,itemsPerPage,filters]);
 
     //main loading function
-    const loadMarketplaceNftData = useCallback(async()=>{
+    const loadMarketplaceNftData = useCallback(async(refresh = false)=>{
         setDataLoading(true);
         if (setError) setError(null);
 
         try {
             const[activeListings,activeAuctions] = await Promise.all([
-                getActiveListings(),
-                getActiveAuctions()
+                getActiveListings(refresh),
+                getActiveAuctions(refresh)
             ]);
 
             const marketPlaceTokenIds = [...new Set([...activeListings,...activeAuctions])];
@@ -217,12 +216,12 @@ const Marketplace = () =>{
         return nfts.map((nft,index)=>{
             const patterns =[
                 'small',
-                'small',
+                'medium',
+                'featured',
+                'large',
+                'tall',
                 'medium',
                 'large',
-                'small',
-                'medium',
-                'wide',
                 'small',
                 'tall',
                 'medium',
@@ -322,7 +321,7 @@ const Marketplace = () =>{
 
     useEffect(()=>{
         if(isConnected && account && provider){
-            loadMarketplaceNftData();
+            loadMarketplaceNftData(true);
         }
     },[isConnected,account,provider,loadMarketplaceNftData]);
 
@@ -514,7 +513,7 @@ const Marketplace = () =>{
                             </div>
 
                             <div className="flex items-center space-x-4">
-                                <button onClick={loadMarketplaceNftData}
+                                <button onClick={() => loadMarketplaceNftData(true)}
                                         disabled={dataLoading}
                                         className="flex items-center space-x-2 px-4 py-2 bg-[#202225] border-2 border-blue-500 hover:text-white text-blue-500 rounded-xl group transition-all duration-200 shadow-lg hover:shadow-xl font-semibold capitalize"        
                                     >
@@ -530,13 +529,210 @@ const Marketplace = () =>{
                     </div>
                 </div>
 
-                {/* content-area */}
+
+                {/* Content Area */}
                 <div className="p-6">
-                    
+                {/* Fixed: Display error from either source */}
+                {displayError && (
+                    <div className="mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-xl">
+                        <div className="flex items-center">
+                            <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
+                            <p className="text-red-300 font-medium">{displayError}</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Controls */}
+                <div className="bg-[#34373B] rounded-2xl border border-gray-500 overflow-hidden mb-6">
+                    <div className="p-4 bg-[#34373B]/50 border-b border-gray-700">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                                <div className="flex items-center bg-gray-700 space-x-2 rounded-xl border border-gray-600 p-1">
+                                    <button
+                                        onClick={() => setViewMode("grid")}
+                                        className={`p-2 rounded-lg transition-colors ${
+                                        viewMode === "grid" ? "bg-blue-500 text-white" : "text-gray-400 bg-gray-600"
+                                        }`}
+                                    >
+                                        <Grid className="h-5 w-5" />
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode("list")}
+                                        className={`p-2 rounded-lg transition-colors ${
+                                            viewMode === "list" ? "bg-blue-500 text-white" : "text-gray-400 bg-gray-600"
+                                        }`}
+                                    >
+                                        <List className="h-5 w-5" />
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode("mosaic")}
+                                        className={`p-2 rounded-lg transition-colors ${
+                                            viewMode === "mosaic" ? "bg-blue-500 text-white" : "text-gray-400 bg-gray-600"
+                                        }`}
+                                        >
+                                        <Layers className="h-5 w-5" />
+                                    </button>
+                                </div>
+
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => setItemsPerPage(parseInt(e.target.value))}
+                                    className="bg-gray-700 rounded-lg px-2 py-2 text-white border border-blue-500"
+                                >
+                                    {ITEMS_PER_PAGE_OPTIONS.map((option) => (
+                                    <option key={option} value={option}>
+                                        {option} NFTs
+                                    </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="text-gray-300 font-medium">
+                            Showing {filteredAndSortedNfts.length} NFTs
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* NFT Display Area */}
+                    <div className="p-6">
+                    {dataLoading && allMarketplaceNfts.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                        <Loader2 className="w-10 h-10 animate-spin mb-4 text-blue-500" />
+                        <p className="text-lg font-medium">Loading marketplace NFTs...</p>
+                        <p className="text-sm text-gray-500 mt-1">This might take a moment.</p>
+                        </div>
+                    ) : paginatedNFTS.length === 0 ? (
+                        <div className="text-center py-12 text-gray-400">
+                        <Image className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                        <p className="text-xl font-semibold mb-2">No NFTs found</p>
+                        <p className="text-gray-400">
+                            {searchQuery || filters.priceRange.min || filters.priceRange.max || filters.status !== 'all' 
+                            ? 'Try adjusting your filters or search query.' 
+                            : 'There are no active listings or auctions in the marketplace right now.'}
+                        </p>
+                        </div>
+                    ) : (
+                        <>
+                        {viewMode === "mosaic" ? (
+                            /* Masonry-style grid for mosaic view */
+                            <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6">
+                            {paginatedNFTS.map((nft, index) => (
+                                <div key={nft.tokenId} className="break-inside-avoid mb-6">
+                                <MosaicNFTCard
+                                    nft={nft}
+                                    account={account}
+                                    onBuyNFT={handleBuyNFT}
+                                    onPlaceBid={handlePlaceBid}
+                                    onFinalizeAuction={handleFinalizeAuction}
+                                    onCancelAuction={handleCancelAuction}
+                                    onCancelListing={handleCancelListing}
+                                    txLoading={txLoading}
+                                    txError={txError}
+                                    loadNFTData={loadMarketplaceNftData}
+                                    showOwnerActions={account && nft.info?.owner?.toLowerCase() === account?.toLowerCase()}
+                                    isMarketplace={true}
+                                    size={nft.mosaicSize}
+                                />
+                                </div>
+                            ))}
+                            </div>
+                        ) : (
+                            
+                            <div
+                            className={`grid gap-6 ${
+                                viewMode === "grid" 
+                                ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" 
+                                : "grid-cols-1"
+                            }`}
+                            >
+                            {paginatedNFTS.map((nft) => (
+                                <NFTCard
+                                key={nft.tokenId}
+                                nft={nft}
+                                account={account}
+                                onBuyNft={handleBuyNFT}
+                                onPlaceBid={handlePlaceBid}
+                                onFinalizeAuction={handleFinalizeAuction}
+                                onCancelAuction={handleCancelAuction}
+                                onCancelListing={handleCancelListing}
+                                txLoading={txLoading}
+                                txError={txError}
+                                loadNFTData={loadMarketplaceNftData}
+                                showOwnerActions={account && nft.info?.owner?.toLowerCase() === account?.toLowerCase()}
+                                isMarketplace={true}
+                                viewMode={viewMode}
+                                />
+                            ))}
+                            </div>
+                        )}
+                        </>
+                    )}
+                    </div>
                 </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-center space-x-4 mt-8">
+                    <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={!hasPrevPage}
+                        className="flex items-center space-x-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <ChevronLeft className="h-5 w-5" />
+                        <span>Previous</span>
+                    </button>
+
+                    <div className="flex items-center space-x-2">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const page = i + 1;
+                        const isActive = page === currentPage;
+                        
+                        return (
+                            <button
+                            key={page}
+                            onClick={() => handlePageChange(page)}
+                            className={`px-4 py-2 rounded-xl font-medium transition-colors ${
+                                isActive
+                                ? "bg-blue-500 text-white"
+                                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                            }`}
+                            >
+                            {page}
+                            </button>
+                        );
+                        })}
+                        
+                        {totalPages > 5 && (
+                        <>
+                            <span className="text-gray-500">...</span>
+                            <button
+                            onClick={() => handlePageChange(totalPages)}
+                            className={`px-4 py-2 rounded-xl font-medium transition-colors ${
+                                totalPages === currentPage
+                                ? "bg-blue-500 text-white"
+                                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                            }`}
+                            >
+                            {totalPages}
+                            </button>
+                        </>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={!hasNextPage}
+                        className="flex items-center space-x-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <span>Next</span>
+                        <ChevronRight className="h-5 w-5" />
+                    </button>
+                </div>
+                )}
             </div>
         </div>
-    )
-}
+    </div>
+    );
+};
 
 export default Marketplace;

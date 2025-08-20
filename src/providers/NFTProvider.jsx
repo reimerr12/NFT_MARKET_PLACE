@@ -375,14 +375,19 @@ const useNFT = ()=>{
     },[getContracts]);
 
     //get active listings
-    const getActiveListings = useCallback(async()=>{
+    const getActiveListings = useCallback(async(refresh = false) =>{
         try {
             setError(null);
 
             const {marketPLaceContract} = getReadOnlyContracts();
 
+            const options = {};
+            if (refresh) {
+                options.blockTag = 'latest';
+            }
+
             console.log('getting active listings');
-            const activeListings = await marketPLaceContract.getActiveListings();
+            const activeListings = await marketPLaceContract.getActiveListings(options);
 
             return activeListings.map(tokenId => tokenId.toString());
         } catch (error) {
@@ -393,14 +398,19 @@ const useNFT = ()=>{
     },[getReadOnlyContracts]);
 
     //get active auctions
-    const getActiveAuctions = useCallback(async()=>{
+    const getActiveAuctions = useCallback(async(refresh = false)=>{
         try {
             setError(null);
 
             const {marketPLaceContract} = getReadOnlyContracts();
 
+            const options = {};
+            if (refresh) {
+                options.blockTag = 'latest';
+            }
+
             console.log('getting active auctions');
-            const activeAuctions  = await marketPLaceContract.getActiveAuctions();
+            const activeAuctions  = await marketPLaceContract.getActiveAuctions(options);
 
             return activeAuctions.map(tokenId => tokenId.toString());
         } catch (error) {

@@ -144,23 +144,105 @@ const MosaicNFTCard = ({
         return null;
     }, [statusChecks.isAuctioned, statusChecks.isAuctionEnded, info.auctionEndTime]);
 
+    // Validate bid input
+    const validateBidAmount = useCallback((bidAmount) => {
+        if (!bidAmount || typeof bidAmount !== 'string') {
+            return { isValid: false, error: "Bid amount is required" };
+        }
+
+        const trimmedAmount = bidAmount.trim();
+        
+        if (trimmedAmount === '' || trimmedAmount === '0') {
+            return { isValid: false, error: "Please enter a bid amount" };
+        }
+
+        // Check if it's a valid number
+        const numericValue = parseFloat(trimmedAmount);
+        if (isNaN(numericValue)) {
+            return { isValid: false, error: "Please enter a valid number" };
+        }
+
+        if (numericValue <= 0) {
+            return { isValid: false, error: "Bid amount must be greater than 0" };
+        }
+
+        // Check if it has too many decimal places (more than 18)
+        const decimalPart = trimmedAmount.split('.')[1];
+        if (decimalPart && decimalPart.length > 18) {
+            return { isValid: false, error: "Too many decimal places (max 18)" };
+        }
+
+        // Check if bid is higher than current bid/reserve price
+        try {
+            if (statusChecks.isAuctioned) {
+                let minBid = 0;
+                
+                if (info.highestBid && !BigNumber.from(info.highestBid).isZero()) {
+                    minBid = parseFloat(formatEther(BigNumber.from(info.highestBid)));
+                } else if (info.reservedPrice && !BigNumber.from(info.reservedPrice).isZero()) {
+                    minBid = parseFloat(formatEther(BigNumber.from(info.reservedPrice)));
+                }
+
+                if (numericValue <= minBid) {
+                    return { 
+                        isValid: false, 
+                        error: `Bid must be higher than ${minBid.toFixed(4)} ETH` 
+                    };
+                }
+            }
+        } catch (error) {
+            console.error("Error validating bid against current price:", error);
+        }
+
+        return { isValid: true, value: trimmedAmount };
+    }, [statusChecks.isAuctioned, info.highestBid, info.reservedPrice]);
+
     // Action handlers with validation
     const handleAction = useCallback(async () => {
-        if (txLoading) return;
+        if (txLoading) {
+            console.log("Transaction is already loading, ignoring action.");
+            return;
+        }
 
         try {
-            if (statusChecks.canBuy && typeof onBuyNFT === 'function') { 
+            if (statusChecks.canBuy && typeof onBuyNFT === 'function') {
+                console.log("Attempting to buy NFT:", nft.tokenId);
                 await onBuyNFT(nft.tokenId);
             } else if (statusChecks.canBid && !statusChecks.isAuctionEnded && typeof onPlaceBid === 'function') {
+                console.log("Attempting to place a bid on NFT:", nft.tokenId);
                 const bidAmount = prompt("Enter Bid Amount In ETH:");
-                if (bidAmount && parseFloat(bidAmount) > 0) {
-                    await onPlaceBid(nft.tokenId, bidAmount);
+                
+                // Handle user cancellation
+                if (bidAmount === null) {
+                    return;
+                }
+
+                // Validate the bid amount
+                const validation = validateBidAmount(bidAmount);
+                
+                if (!validation.isValid) {
+                    alert(`Invalid bid: ${validation.error}`);
+                    return;
+                }
+
+                try {
+                    await onPlaceBid(nft.tokenId, validation.value);
+                } catch (error) {
+                    console.error('Place bid error:', error);
+                    alert(`Bid failed: ${error.message || 'Unknown error occurred'}`);
                 }
             } else if (statusChecks.isAuctionEnded && showOwnerActions && typeof onFinalizeAuction === 'function') {
-                await onFinalizeAuction(nft.tokenId);
+                console.log("Attempting to finalize auction for NFT:", nft.tokenId);
+                if (window.confirm("Are you sure you want to finalize this auction?")) {
+                    await onFinalizeAuction(nft.tokenId);
+                }
+            } else {
+                console.log("No specific action found for this NFT state. Defaulting to 'View'.");
+                // No action available, maybe navigate to a view page or do nothing.
             }
         } catch (error) {
             console.error('Action failed:', error);
+            alert(`Action failed: ${error.message || 'Unknown error occurred'}`);
         }
     }, [
         txLoading,
@@ -171,17 +253,23 @@ const MosaicNFTCard = ({
         onBuyNFT,
         onPlaceBid,
         onFinalizeAuction,
-        nft.tokenId
+        nft.tokenId,
+        validateBidAmount
     ]);
 
     // Cancel listing
     const handleCancelListing = useCallback(async () => {
         if (txLoading || typeof onCancelListing !== 'function') return;
 
+        if (!window.confirm("Are you sure you want to cancel this listing?")) {
+            return;
+        }
+
         try {
             await onCancelListing(nft.tokenId);
         } catch (error) {
             console.error('Cancel listing failed:', error);
+            alert(`Cancel listing failed: ${error.message || 'Unknown error occurred'}`);
         }
     }, [txLoading, nft.tokenId, onCancelListing]);
 
@@ -189,10 +277,15 @@ const MosaicNFTCard = ({
     const handleCancelAuction = useCallback(async () => {
         if (txLoading || typeof onCancelAuction !== 'function') return;
 
+        if (!window.confirm("Are you sure you want to cancel this auction?")) {
+            return;
+        }
+
         try {
             await onCancelAuction(nft.tokenId);
         } catch (error) {
             console.error('Cancel auction failed:', error);
+            alert(`Cancel auction failed: ${error.message || 'Unknown error occurred'}`);
         }
     }, [txLoading, nft.tokenId, onCancelAuction]);
 
@@ -211,21 +304,20 @@ const MosaicNFTCard = ({
         return <Eye className="w-4 h-4" />;
     }, [txLoading, statusChecks.canBuy, statusChecks.canBid]);
 
-
     const getSizeClasses = () => {
         switch (size) {
             case 'small':
-                return 'h-48'; 
+                return 'h-56'; 
             case 'medium':
-                return 'h-64';
+                return 'h-65';
             case 'large':
                 return 'h-80';
             case 'wide':
-                return 'h-48'; 
+                return 'h-50'; 
             case 'tall':
-                return 'h-96';
+                return 'h-89';
             case 'featured':
-                return 'h-80';
+                return 'h-96';
             default:
                 return 'h-64';
         }
@@ -398,6 +490,13 @@ const MosaicNFTCard = ({
                         {!statusChecks.isOwner && !statusChecks.isListed && !statusChecks.isAuctioned && (
                             <p className={`${isSmall ? 'text-xs' : 'text-xs'} text-center text-gray-400 bg-black/40 rounded-lg ${isSmall ? 'py-0.5 px-1' : 'py-1 px-2'} backdrop-blur-sm`}>
                                 Not for sale
+                            </p>
+                        )}
+
+                        {/* Error display */}
+                        {txError && (
+                            <p className={`${isSmall ? 'text-xs' : 'text-xs'} text-center text-red-400 bg-red-900/40 rounded-lg ${isSmall ? 'py-0.5 px-1' : 'py-1 px-2'} backdrop-blur-sm`}>
+                                {txError}
                             </p>
                         )}
                     </div>
