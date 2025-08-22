@@ -25,6 +25,7 @@ const Marketplace = () =>{
         cancelAuction,
         cancelListing,
         setError,
+        subscribeToMarketPlaceEvents,
     } = useNFT();
 
     const[allMarketplaceNfts,setAllmarketplaceNfts] = useState([]);
@@ -41,84 +42,138 @@ const Marketplace = () =>{
     //pagination
     const[currentPage,setCurrentPage] = useState(1);
     const[itemsPerPage,setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
+    const[autoRefreshEnabled,setAutoRefreshEnabled] = useState(false);
 
     useEffect(()=>{
         setCurrentPage(1);
     },[searchQuery,sortBy,itemsPerPage,filters]);
 
     //main loading function
-    const loadMarketplaceNftData = useCallback(async(refresh = false)=>{
+    const loadMarketplaceNftData = useCallback(async(refresh = false) => {
         setDataLoading(true);
         if (setError) setError(null);
 
         try {
-            const[activeListings,activeAuctions] = await Promise.all([
+            if (refresh && window.ethereum) {
+            console.log("Forcing MetaMask to sync...");
+            
+            // Force MetaMask to refresh its connection
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_requestPermissions',
+                    params: [{ eth_accounts: {} }]
+                });
+            } catch (error) {
+                // Permission request might fail, that's ok
+                console.log("Permission refresh failed, continuing...");
+            }
+            
+            // Add extra delay to let MetaMask sync
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+
+            // Use Promise.allSettled instead of Promise.all for better error handling
+            const [listingsResult, auctionsResult] = await Promise.allSettled([
                 getActiveListings(refresh),
                 getActiveAuctions(refresh)
             ]);
 
-            const marketPlaceTokenIds = [...new Set([...activeListings,...activeAuctions])];
+            const activeListings = listingsResult.status === 'fulfilled' ? listingsResult.value : [];
+            const activeAuctions = auctionsResult.status === 'fulfilled' ? auctionsResult.value : [];
+            
+            if (listingsResult.status === 'rejected') {
+                console.warn('Failed to load listings:', listingsResult.reason);
+            }
+            if (auctionsResult.status === 'rejected') {
+                console.warn('Failed to load auctions:', auctionsResult.reason);
+            }
 
-            const loadNftBatch = async(tokenIds)=>{
+            const marketPlaceTokenIds = [...new Set([...activeListings, ...activeAuctions])];
+            console.log(`Loading data for ${marketPlaceTokenIds.length} NFTs`);
+
+            const loadNftBatch = async(tokenIds) => {
                 if(tokenIds.length === 0) return [];
 
-                const nftPromises = tokenIds.map(async(tokenId)=>{
-                    try {
-                        const[metadata , info] = await Promise.all([
-                            getNFTMetadata(tokenId),
-                            getNftInfo(tokenId)
-                        ]);
+                // Process in smaller batches to avoid RPC rate limits
+                const batchSize = 10;
+                const batches = [];
+                
+                for (let i = 0; i < tokenIds.length; i += batchSize) {
+                    batches.push(tokenIds.slice(i, i + batchSize));
+                }
 
-                        const processedInfo = {...info};
+                const allResults = [];
+                
+                for (const batch of batches) {
+                    const nftPromises = batch.map(async(tokenId) => {
+                        try {
+                            const [metadata, info] = await Promise.all([
+                                getNFTMetadata(tokenId),
+                                getNftInfo(tokenId)
+                            ]);
 
-                        if(processedInfo.price !== undefined && processedInfo.price !== null){
-                            try {
-                                if(!BigNumber.isBigNumber(processedInfo.price)){
-                                    processedInfo.price = BigNumber.from(processedInfo.price.toString());
+                            const processedInfo = {...info};
+
+                            // Ensure BigNumber handling
+                            if(processedInfo.price !== undefined && processedInfo.price !== null){
+                                try {
+                                    if(!BigNumber.isBigNumber(processedInfo.price)){
+                                        processedInfo.price = BigNumber.from(processedInfo.price.toString());
+                                    }
+                                } catch (error) {
+                                    console.warn("Error converting price to BigNumber", processedInfo.price, error);
+                                    processedInfo.price = BigNumber.from(0);
                                 }
-                            } catch (error) {
-                                console.warn("Error converting price to BigNumber", processedInfo.price, error);
+                            } else {
                                 processedInfo.price = BigNumber.from(0);
                             }
-                        }else{
-                            processedInfo.price = BigNumber.from(0);
-                        }
 
-                        if(processedInfo.highestBid !== undefined && processedInfo.highestBid !== null){
-                            try {
-                                if(!BigNumber.isBigNumber(processedInfo.highestBid)){
-                                    processedInfo.highestBid = BigNumber.from(processedInfo.highestBid.toString());
+                            if(processedInfo.highestBid !== undefined && processedInfo.highestBid !== null){
+                                try {
+                                    if(!BigNumber.isBigNumber(processedInfo.highestBid)){
+                                        processedInfo.highestBid = BigNumber.from(processedInfo.highestBid.toString());
+                                    }
+                                } catch (error) {
+                                    console.warn(`Error converting highestBid to BigNumber for NFT ${tokenId}:`, processedInfo.highestBid, error);
+                                    processedInfo.highestBid = BigNumber.from(0);
                                 }
-                            } catch (error) {
-                                console.warn(`Error converting highestBid to BigNumber for NFT ${tokenId}:`, processedInfo.highestBid, error);
+                            } else {
                                 processedInfo.highestBid = BigNumber.from(0);
                             }
-                        }else{
-                            processedInfo.highestBid = BigNumber.from(0);
+
+                            return {tokenId, metadata, info: processedInfo};
+
+                        } catch (error) {
+                            console.error(`Error loading NFT ${tokenId}:`, error);
+                            return null;
                         }
+                    });
 
-                        return{tokenId,metadata,info:processedInfo};
-
-                    } catch (error) {
-                        console.error(`Error loading NFT ${tokenId}:`, error);
-                        return null;
+                    const batchResults = await Promise.all(nftPromises);
+                    allResults.push(...batchResults.filter(Boolean));
+                    
+                    // Small delay between batches to be nice to RPC
+                    if (batches.indexOf(batch) < batches.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
                     }
-                });
+                }
 
-                const results = await Promise.all(nftPromises);
-                return results.filter(Boolean);
-
+                return allResults;
             }
+
             const loadedMarketplaceNfts = await loadNftBatch(marketPlaceTokenIds);
             setAllmarketplaceNfts(loadedMarketplaceNfts);
+            
+            console.log(`Successfully loaded ${loadedMarketplaceNfts.length} marketplace NFTs`);
+            
         } catch (error) {
             console.error("Error loading marketplace data:", error);
             const errorMessage = error.message || "Failed to load marketplace NFTs.";
             if (setError) setError(errorMessage);
-        }finally{
+        } finally {
             setDataLoading(false);
         }
-    },[getActiveListings,getActiveAuctions,getNFTMetadata,getNftInfo,setError]);
+    }, [getActiveListings, getActiveAuctions, getNFTMetadata, getNftInfo, setError]);
 
     //apply filters
     const applyFilters = useCallback((nfts)=>{
@@ -223,7 +278,7 @@ const Marketplace = () =>{
                 'medium',
                 'large',
                 'small',
-                'tall',
+                'featured',
                 'medium',
                 'small',
                 'featured'
@@ -319,11 +374,42 @@ const Marketplace = () =>{
         setSortBy('newest');
     };
 
-    useEffect(()=>{
-        if(isConnected && account && provider){
-            loadMarketplaceNftData(true);
+    useEffect(() => {
+        if(!isConnected || !account || !provider) return;
+
+        let eventCleanup = null;
+        let pollingInterval = null;
+
+        if(subscribeToMarketPlaceEvents && autoRefreshEnabled) {
+            eventCleanup = subscribeToMarketPlaceEvents(() => {
+                console.log("Marketplace event detected, refreshing data...");
+                // Longer delay to ensure cross-device propagation
+                setTimeout(() => {
+                    loadMarketplaceNftData(true);
+                }, 4000);
+            });
         }
-    },[isConnected,account,provider,loadMarketplaceNftData]);
+
+        if(autoRefreshEnabled) {
+            pollingInterval = setInterval(() => {
+                console.log("Auto-refresh: checking for updates...");
+                 loadMarketplaceNftData(true);
+            }, 360000); 
+        }
+
+        // Initial load
+        loadMarketplaceNftData(true);
+
+        return () => {
+            if(eventCleanup) eventCleanup();
+            if(pollingInterval) clearInterval(pollingInterval);
+        }
+
+    }, [isConnected, account, provider, loadMarketplaceNftData, autoRefreshEnabled]);
+
+    const handleAutoRefreshToggle = () => {
+        setAutoRefreshEnabled(autoRefreshEnabled);
+    };  
 
     const displayError = txError;
     
@@ -428,7 +514,7 @@ const Marketplace = () =>{
                                     onChange={(e)=>{
                                         setFilters((prev)=>({
                                             ...prev,
-                                            priceRange:{...prev.priceRange.max, max:e.target.value}
+                                            priceRange:{...prev.priceRange, max:e.target.value}
                                         }))
                                     }}
                                     className="w-full px-3 py-2 border border-gray-600 bg-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white text-sm"
@@ -512,7 +598,27 @@ const Marketplace = () =>{
                                 </div>
                             </div>
 
+
                             <div className="flex items-center space-x-4">
+
+                                <button
+                                    onClick={handleAutoRefreshToggle}
+                                    className={`hidden sm:flex items-center space-x-2 px-3 py-2 rounded-xl font-medium transition-all duration-200 ${
+                                        autoRefreshEnabled 
+                                        ? 'bg-green-500/20 border border-green-500/50 text-green-400 hover:bg-green-500/30' 
+                                        : 'bg-gray-700 border border-gray-600 text-gray-400 hover:bg-gray-600'
+                                    }`}
+                                >
+                                    {autoRefreshEnabled ? (
+                                        <Activity className="h-4 w-4" />
+                                    ) : (
+                                        <Clock className="h-4 w-4" />
+                                    )}
+                                    <span className="text-sm">
+                                        {autoRefreshEnabled ? 'Live' : 'Manual'}
+                                    </span>
+                                </button>
+
                                 <button onClick={() => loadMarketplaceNftData(true)}
                                         disabled={dataLoading}
                                         className="flex items-center space-x-2 px-4 py-2 bg-[#202225] border-2 border-blue-500 hover:text-white text-blue-500 rounded-xl group transition-all duration-200 shadow-lg hover:shadow-xl font-semibold capitalize"        
@@ -615,7 +721,7 @@ const Marketplace = () =>{
                         <>
                         {viewMode === "mosaic" ? (
                             /* Masonry-style grid for mosaic view */
-                            <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6">
+                            <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-6">
                             {paginatedNFTS.map((nft, index) => (
                                 <div key={nft.tokenId} className="break-inside-avoid mb-6">
                                 <MosaicNFTCard

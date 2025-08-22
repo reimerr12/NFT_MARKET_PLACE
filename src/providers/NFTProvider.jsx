@@ -12,7 +12,7 @@ const useNFT = ()=>{
     const[error,setError] = useState(null);
     const accountRef = useRef();
     const signerRef = useRef();
-    const isConnectedRef = useRef();    
+    const isConnectedRef = useRef();
 
     useEffect(() => {
         accountRef.current = account;
@@ -375,19 +375,59 @@ const useNFT = ()=>{
     },[getContracts]);
 
     //get active listings
-    const getActiveListings = useCallback(async(refresh = false) =>{
+    const getActiveListings = useCallback(async(refresh = false) => {
+        try {
+            setError(null);
+            if(refresh) {
+                if (window.ethereum) {
+                    const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+                    await tempProvider.ready;
+                    
+                    let latestBlock = await tempProvider.getBlockNumber();
+                    //console.log(`Fetching from latest block: ${latestBlock}`);
+                    
+                    // Check what network we're actually on
+                    const network = await tempProvider.getNetwork();
+                    //console.log(`Network:`, network);
+                    
+                    
+                    const freshContract = new ethers.Contract(
+                        NFT_MARKETPLACE_ADDRESS,
+                        NFT_MARKETPLACE_ABI,
+                        tempProvider
+                    );
+                    
+                    const activeListings = await freshContract.getActiveListings();
+                    console.log(`Raw active listings:`, activeListings.map(id => id.toString()));
+                    
+                    return activeListings.map(tokenId => tokenId.toString());
+                }
+            }
+            
+            const {marketPLaceContract} = getReadOnlyContracts();
+            const activeListings = await marketPLaceContract.getActiveListings();
+            return activeListings.map(tokenId => tokenId.toString());
+        } catch (error) {
+            const errorMessage = error.message || 'failed to get active listings';
+            setError(errorMessage);
+            throw new Error(errorMessage);
+        }
+    }, [getReadOnlyContracts]);
+    /* const getActiveListings = useCallback(async(refresh = false) =>{
         try {
             setError(null);
 
             const {marketPLaceContract} = getReadOnlyContracts();
 
-            const options = {};
-            if (refresh) {
-                options.blockTag = 'latest';
+            if(refresh){
+                const freshProvider = new ethers.providers.Web3Provider(window.ethereum);
+                const freshContract = new ethers.Contract(NFT_MARKETPLACE_ADDRESS,NFT_MARKETPLACE_ABI,freshProvider);
+                const activeListings = await freshContract.getActiveListings();
+                return activeListings.map(tokenId => tokenId.toString());
             }
 
             console.log('getting active listings');
-            const activeListings = await marketPLaceContract.getActiveListings(options);
+            const activeListings = await marketPLaceContract.getActiveListings();
 
             return activeListings.map(tokenId => tokenId.toString());
         } catch (error) {
@@ -395,22 +435,62 @@ const useNFT = ()=>{
             setError(errorMessage);
             throw new Error(errorMessage);
         }
-    },[getReadOnlyContracts]);
+    },[getReadOnlyContracts]); */
 
     //get active auctions
-    const getActiveAuctions = useCallback(async(refresh = false)=>{
+    const getActiveAuctions = useCallback(async(refresh = false) => {
+        try {
+            setError(null);
+            if(refresh) {
+                if (window.ethereum) {
+                    const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+                    await tempProvider.ready;
+                    
+                    let latestBlock = await tempProvider.getBlockNumber();
+                    //console.log(`Fetching from latest block: ${latestBlock}`);
+                    
+                    // Check what network we're actually on
+                    const network = await tempProvider.getNetwork();
+                    //console.log(`Network:`, network);
+                    
+                    
+                    const freshContract = new ethers.Contract(
+                        NFT_MARKETPLACE_ADDRESS,
+                        NFT_MARKETPLACE_ABI,
+                        tempProvider
+                    );
+                    
+                    const activeAuctions = await freshContract.getActiveAuctions();
+                    console.log(`Raw active auctions:`, activeAuctions.map(id => id.toString()));
+                    
+                    return activeAuctions.map(tokenId => tokenId.toString());
+                }
+            }
+            
+            const {marketPLaceContract} = getReadOnlyContracts();
+            const activeAuctions = await marketPLaceContract.getActiveAuctions();
+            return activeAuctions.map(tokenId => tokenId.toString());
+        } catch (error) {
+            const errorMessage = error.message || 'failed to get active Auctions';
+            setError(errorMessage);
+            throw new Error(errorMessage);
+        }
+    }, [getReadOnlyContracts]);
+    /* const getActiveAuctions = useCallback(async(refresh = false)=>{
         try {
             setError(null);
 
             const {marketPLaceContract} = getReadOnlyContracts();
 
-            const options = {};
-            if (refresh) {
-                options.blockTag = 'latest';
+            if(refresh){
+                const freshProvider = new ethers.providers.Web3Provider(window.ethereum);
+                const freshContract = new ethers.Contract(NFT_MARKETPLACE_ADDRESS,NFT_MARKETPLACE_ABI,freshProvider);
+                const activeAuctions = await freshContract.getActiveAuctions();
+                return activeAuctions.map(tokenId => tokenId.toString());
             }
 
             console.log('getting active auctions');
-            const activeAuctions  = await marketPLaceContract.getActiveAuctions(options);
+            const activeAuctions  = await marketPLaceContract.getActiveAuctions();
 
             return activeAuctions.map(tokenId => tokenId.toString());
         } catch (error) {
@@ -418,7 +498,7 @@ const useNFT = ()=>{
             setError(errorMessage);
             throw new Error(errorMessage);
         }
-    },[getReadOnlyContracts]);
+    },[getReadOnlyContracts]); */
 
     //get info about the nfts
     const getNftInfo = useCallback(async(tokenId) => {
@@ -427,15 +507,9 @@ const useNFT = ()=>{
 
             const { marketPLaceContract } = getReadOnlyContracts();
             
-            /* console.log('Getting NFT info for tokenId:', tokenId); */
-            const nftInfo = await marketPLaceContract.getNFTInfo(tokenId);
-            
-            /* console.log('Raw contract response:', {
-                tokenId,
-                price: nftInfo.price.toString(),
-                priceInEth: ethers.utils.formatEther(nftInfo.price),
-                isListed: nftInfo.isListed
-            }); */
+            const nftInfo = await marketPLaceContract.getNFTInfo(tokenId, {
+                blockTag: 'latest' // Force latest state
+            });
 
             return {
                 owner: nftInfo.owner,
@@ -549,6 +623,48 @@ const useNFT = ()=>{
         }
     }, [getReadOnlyContracts]);
 
+    const subscribeToMarketPlaceEvents = useCallback((onMarketplaceUpdate)=>{
+        if(!provider){
+            console.warn("Provider not available for event subscription");
+            return null;
+        }
+
+        try {
+            const marketplaceContract = new ethers.Contract(NFT_MARKETPLACE_ADDRESS,NFT_MARKETPLACE_ABI,provider);
+
+            console.log("Setting up marketplace event listeners...");
+
+            const handleUpdate = (eventName) =>(...args) =>{
+                console.log(`${eventName} event detected:`,args);
+
+                setTimeout(()=>onMarketplaceUpdate(),2000);
+            }
+
+            marketplaceContract.on("NFTListed", handleUpdate("NFTListed"));
+            marketplaceContract.on("AuctionCreated", handleUpdate("AuctionCreated"));
+            marketplaceContract.on("BidPlaced", handleUpdate("BidPlaced"));
+            marketplaceContract.on("AuctionFinalized", handleUpdate("AuctionFinalized"));
+            marketplaceContract.on("AuctionCancelled", handleUpdate("AuctionCancelled"));
+            marketplaceContract.on("NFTpurchased", handleUpdate("NFTpurchased"));
+            marketplaceContract.on("Listingcancelled", handleUpdate("Listingcancelled"));
+
+            return()=>{
+                console.log("Cleaning up marketplace event listeners...");
+                marketplaceContract.removeAllListeners("NFTListed");
+                marketplaceContract.removeAllListeners("AuctionCreated");
+                marketplaceContract.removeAllListeners("BidPlaced");
+                marketplaceContract.removeAllListeners("AuctionFinalized");
+                marketplaceContract.removeAllListeners("AuctionCancelled");
+                marketplaceContract.removeAllListeners("NFTpurchased");
+                marketplaceContract.removeAllListeners("Listingcancelled");
+            }
+
+        } catch (error) {
+            console.error("error setting up event listeners",error);
+            return null;
+        }
+    },[provider]);
+
     return {
         // State
         loading,
@@ -574,6 +690,7 @@ const useNFT = ()=>{
         getWithdrawableBalance,
         getNFTMetadata,
         getRoyaltyInfo,
+        subscribeToMarketPlaceEvents,
         
         // Utility functions
         setError,
