@@ -781,7 +781,7 @@ const Marketplace = () =>{
                     <div className="flex items-center justify-center space-x-4 mt-8">
                     <button
                         onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={!hasPrevPage}
+                        disabled={!hasprevPage}
                         className="flex items-center space-x-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <ChevronLeft className="h-5 w-5" />
