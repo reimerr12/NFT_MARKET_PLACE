@@ -378,35 +378,65 @@ const useNFT = ()=>{
     const getActiveListings = useCallback(async(refresh = false) => {
         try {
             setError(null);
-            if(refresh) {
-                if (window.ethereum) {
-                    const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-                    await tempProvider.ready;
-                    
-                    let latestBlock = await tempProvider.getBlockNumber();
-                    //console.log(`Fetching from latest block: ${latestBlock}`);
-                    
-                    // Check what network we're actually on
-                    const network = await tempProvider.getNetwork();
-                    //console.log(`Network:`, network);
-                    
-                    
-                    const freshContract = new ethers.Contract(
-                        NFT_MARKETPLACE_ADDRESS,
-                        NFT_MARKETPLACE_ABI,
-                        tempProvider
-                    );
-                    
-                    const activeListings = await freshContract.getActiveListings();
-                    console.log(`Raw active listings:`, activeListings.map(id => id.toString()));
-                    
-                    return activeListings.map(tokenId => tokenId.toString());
+            
+            let activeListings;
+            
+            if (refresh) {
+
+                let attempts = 0;
+                const maxAttempts = 3;
+                
+                while (attempts < maxAttempts) {
+                    try {
+
+                        const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+                        await tempProvider.ready;
+                        
+
+                        const latestBlock = await tempProvider.getBlockNumber();
+                        console.log(`Fetching listings from block: ${latestBlock}`);
+                        
+                        const freshContract = new ethers.Contract(
+                            NFT_MARKETPLACE_ADDRESS,
+                            NFT_MARKETPLACE_ABI,
+                            tempProvider
+                        );
+                        
+
+                        activeListings = await freshContract.getActiveListings({
+                            blockTag: 'latest'
+                        });
+                        
+ 
+                        if (activeListings) {
+                            console.log(`Fresh active listings:`, activeListings.map(id => id.toString()));
+                            break;
+                        }
+                        
+                    } catch (error) {
+                        attempts++;
+                        console.warn(`Refresh attempt ${attempts} failed:`, error);
+                        
+                        if (attempts >= maxAttempts) {
+                            console.log('All refresh attempts failed, falling back to regular provider');
+                            // Fallback to regular provider
+                            const {marketPLaceContract} = getReadOnlyContracts();
+                            activeListings = await marketPLaceContract.getActiveListings();
+                            break;
+                        }
+                        
+
+                        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+                    }
                 }
+            } else {
+
+                const {marketPLaceContract} = getReadOnlyContracts();
+                activeListings = await marketPLaceContract.getActiveListings();
             }
             
-            const {marketPLaceContract} = getReadOnlyContracts();
-            const activeListings = await marketPLaceContract.getActiveListings();
             return activeListings.map(tokenId => tokenId.toString());
+            
         } catch (error) {
             const errorMessage = error.message || 'failed to get active listings';
             setError(errorMessage);
@@ -441,41 +471,71 @@ const useNFT = ()=>{
     const getActiveAuctions = useCallback(async(refresh = false) => {
         try {
             setError(null);
-            if(refresh) {
-                if (window.ethereum) {
-                    const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-                    await tempProvider.ready;
-                    
-                    let latestBlock = await tempProvider.getBlockNumber();
-                    //console.log(`Fetching from latest block: ${latestBlock}`);
-                    
-                    // Check what network we're actually on
-                    const network = await tempProvider.getNetwork();
-                    //console.log(`Network:`, network);
-                    
-                    
-                    const freshContract = new ethers.Contract(
-                        NFT_MARKETPLACE_ADDRESS,
-                        NFT_MARKETPLACE_ABI,
-                        tempProvider
-                    );
-                    
-                    const activeAuctions = await freshContract.getActiveAuctions();
-                    console.log(`Raw active auctions:`, activeAuctions.map(id => id.toString()));
-                    
-                    return activeAuctions.map(tokenId => tokenId.toString());
+            
+            let activeAuctions;
+            
+            if (refresh) {
+
+                let attempts = 0;
+                const maxAttempts = 3;
+                
+                while (attempts < maxAttempts) {
+                    try {
+
+                        const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+                        await tempProvider.ready;
+                        
+
+                        const latestBlock = await tempProvider.getBlockNumber();
+                        console.log(`Fetching auctions from block: ${latestBlock}`);
+                        
+                        const freshContract = new ethers.Contract(
+                            NFT_MARKETPLACE_ADDRESS,
+                            NFT_MARKETPLACE_ABI,
+                            tempProvider
+                        );
+                        
+
+                        activeAuctions = await freshContract.getActiveAuctions({
+                            blockTag: 'latest'
+                        });
+                        
+
+                        if (activeAuctions) {
+                            console.log(`Fresh active auctions:`, activeAuctions.map(id => id.toString()));
+                            break;
+                        }
+                        
+                    } catch (error) {
+                        attempts++;
+                        console.warn(`Refresh attempt ${attempts} failed:`, error);
+                        
+                        if (attempts >= maxAttempts) {
+                            console.log('All refresh attempts failed, falling back to regular provider');
+
+                            const {marketPLaceContract} = getReadOnlyContracts();
+                            activeAuctions = await marketPLaceContract.getActiveAuctions();
+                            break;
+                        }
+                        
+                        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+                    }
                 }
+            } else {
+
+                const {marketPLaceContract} = getReadOnlyContracts();
+                activeAuctions = await marketPLaceContract.getActiveAuctions();
             }
             
-            const {marketPLaceContract} = getReadOnlyContracts();
-            const activeAuctions = await marketPLaceContract.getActiveAuctions();
             return activeAuctions.map(tokenId => tokenId.toString());
+            
         } catch (error) {
-            const errorMessage = error.message || 'failed to get active Auctions';
+            const errorMessage = error.message || 'failed to get active auctions';
             setError(errorMessage);
             throw new Error(errorMessage);
         }
     }, [getReadOnlyContracts]);
+
     /* const getActiveAuctions = useCallback(async(refresh = false)=>{
         try {
             setError(null);
@@ -501,7 +561,48 @@ const useNFT = ()=>{
     },[getReadOnlyContracts]); */
 
     //get info about the nfts
-    const getNftInfo = useCallback(async(tokenId) => {
+    const getNftInfo = useCallback(async(tokenId, refresh = false) => {
+        try {
+            setError(null);
+
+            let nftInfo;
+            
+            if (refresh) {
+                // Use fresh provider for critical data
+                const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+                await tempProvider.ready;
+                
+                const freshContract = new ethers.Contract(
+                    NFT_MARKETPLACE_ADDRESS,
+                    NFT_MARKETPLACE_ABI,
+                    tempProvider
+                );
+                
+                nftInfo = await freshContract.getNFTInfo(tokenId, {
+                    blockTag: 'latest'
+                });
+            } else {
+                const { marketPLaceContract } = getReadOnlyContracts();
+                nftInfo = await marketPLaceContract.getNFTInfo(tokenId, {
+                    blockTag: 'latest'
+                });
+            }
+
+            return {
+                owner: nftInfo.owner,
+                isListed: nftInfo.isListed,
+                isAuctioned: nftInfo.isAuctioned,
+                price: nftInfo.price, 
+                highestBid: nftInfo.highestBid, 
+                auctionEndTime: nftInfo.auctionEndTime.toString()
+            };
+        } catch (error) {
+            const errorMessage = error.message || 'failed to get info of the nft';
+            setError(errorMessage);
+            throw new Error(errorMessage);
+        }
+    }, [getReadOnlyContracts]);
+    /* const getNftInfo = useCallback(async(tokenId) => {
         try {
             setError(null);
 
@@ -524,7 +625,7 @@ const useNFT = ()=>{
             setError(errorMessage);
             throw new Error(errorMessage);
         }
-    }, [getReadOnlyContracts]);
+    }, [getReadOnlyContracts]); */
 
     //get user created nfts
     const getUserCreatedNFTs = useCallback(async(userAddress = account)=>{

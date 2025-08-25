@@ -3,6 +3,7 @@ import { SiEthereum } from "react-icons/si";
 import { ShoppingCart, Heart, Eye, Loader2, Tag, Clock, Gavel } from "lucide-react";
 import { BigNumber } from "ethers";
 import { formatEther } from "ethers/lib/utils";
+import BuyConfirmationModal from "./BuyConfirmationModal";
 
 const MosaicNFTCard = ({
     nft,
@@ -21,6 +22,7 @@ const MosaicNFTCard = ({
 }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [imageLoaded, setImageLoaded] = useState(false);
+    const [showBuyConfirmationModal, setShowBuyConfirmationModal] = useState(false);
 
     const nftDisplayData = useMemo(() => {
         const metadata = nft.metadata || {};
@@ -115,6 +117,20 @@ const MosaicNFTCard = ({
         }
     }, [statusChecks.isAuctioned, statusChecks.isListed, info.highestBid, info.reservedPrice, info.price]);
 
+    // Buy button price for modal display
+    const buyButtonPrice = useMemo(() => {
+        if (statusChecks.isListed && info.price) {
+            try {
+                const priceInEth = formatEther(BigNumber.from(info.price));
+                return parseFloat(priceInEth).toString();
+            } catch (error) {
+                console.error('Error calculating buy button price:', error);
+                return '0';
+            }
+        }
+        return '0';
+    }, [statusChecks.isListed, info.price]);
+
     // Image source with fallback
     const imageSrc = useMemo(() => {
         return nftDisplayData.image || `https://via.placeholder.com/400x400?text=NFT+${nft.tokenId}`;
@@ -143,6 +159,22 @@ const MosaicNFTCard = ({
         
         return null;
     }, [statusChecks.isAuctioned, statusChecks.isAuctionEnded, info.auctionEndTime]);
+
+    // Modal handlers
+    const handleOpenBuyConfirmation = useCallback(() => setShowBuyConfirmationModal(true), []);
+    const handleCloseBuyConfirmation = useCallback(() => setShowBuyConfirmationModal(false), []);
+
+    // Handle confirm purchase
+    const handleConfirmPurchase = useCallback(() => {
+        if (typeof onBuyNFT === 'function') {
+            onBuyNFT(nft.tokenId);
+            setShowBuyConfirmationModal(false);
+        } else {
+            console.error("onBuyNFT function is not available");
+            alert("Buy function not found");
+            setShowBuyConfirmationModal(false);
+        }
+    }, [nft.tokenId, onBuyNFT]);
 
     // Validate bid input
     const validateBidAmount = useCallback((bidAmount) => {
@@ -206,8 +238,8 @@ const MosaicNFTCard = ({
 
         try {
             if (statusChecks.canBuy && typeof onBuyNFT === 'function') {
-                console.log("Attempting to buy NFT:", nft.tokenId);
-                await onBuyNFT(nft.tokenId);
+                console.log("Opening buy confirmation modal for NFT:", nft.tokenId);
+                handleOpenBuyConfirmation();
             } else if (statusChecks.canBid && !statusChecks.isAuctionEnded && typeof onPlaceBid === 'function') {
                 console.log("Attempting to place a bid on NFT:", nft.tokenId);
                 const bidAmount = prompt("Enter Bid Amount In ETH:");
@@ -254,7 +286,8 @@ const MosaicNFTCard = ({
         onPlaceBid,
         onFinalizeAuction,
         nft.tokenId,
-        validateBidAmount
+        validateBidAmount,
+        handleOpenBuyConfirmation
     ]);
 
     // Cancel listing
@@ -327,182 +360,194 @@ const MosaicNFTCard = ({
     const isWide = size === 'wide';
 
     return (
-        <div
-            className={`relative bg-[#1a1d21] rounded-xl overflow-hidden border border-gray-800 hover:border-blue-500/70 transition-all duration-300 cursor-pointer group w-full ${getSizeClasses()}`}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-        >
-            {/* Image Container */}
-            <div className="relative w-full h-full">
-                <img
-                    src={imageSrc}
-                    alt={nftDisplayData.name}
-                    className={`w-full h-full object-cover transition-all duration-500 ${isHovered ? 'scale-110' : 'scale-100'}`}
-                    onLoad={() => setImageLoaded(true)}
-                    onError={(e) => {
-                        if (!e.target.src.includes('placeholder')) {
-                            e.target.src = `https://via.placeholder.com/400x400?text=NFT+${nft.tokenId}`;
-                        } else {
-                            e.target.style.display = 'none';
-                            const parent = e.target.parentNode;
-                            if (parent && !parent.querySelector('.fallback-display')) {
-                                const fallback = document.createElement('div');
-                                fallback.className = 'fallback-display w-full h-full bg-gray-700 flex items-center justify-center text-gray-400';
-                                fallback.innerHTML = '<div class="text-center"><div class="text-4xl mb-2">🖼️</div><div>No Image</div></div>';
-                                parent.appendChild(fallback);
+        <>
+            <div
+                className={`relative bg-[#1a1d21] rounded-xl overflow-hidden border border-gray-800 hover:border-blue-500/70 transition-all duration-300 cursor-pointer group w-full ${getSizeClasses()}`}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+            >
+                {/* Image Container */}
+                <div className="relative w-full h-full">
+                    <img
+                        src={imageSrc}
+                        alt={nftDisplayData.name}
+                        className={`w-full h-full object-cover transition-all duration-500 ${isHovered ? 'scale-110' : 'scale-100'}`}
+                        onLoad={() => setImageLoaded(true)}
+                        onError={(e) => {
+                            if (!e.target.src.includes('placeholder')) {
+                                e.target.src = `https://via.placeholder.com/400x400?text=NFT+${nft.tokenId}`;
+                            } else {
+                                e.target.style.display = 'none';
+                                const parent = e.target.parentNode;
+                                if (parent && !parent.querySelector('.fallback-display')) {
+                                    const fallback = document.createElement('div');
+                                    fallback.className = 'fallback-display w-full h-full bg-gray-700 flex items-center justify-center text-gray-400';
+                                    fallback.innerHTML = '<div class="text-center"><div class="text-4xl mb-2">🖼️</div><div>No Image</div></div>';
+                                    parent.appendChild(fallback);
+                                }
                             }
-                        }
-                    }}
-                />
+                        }}
+                    />
 
-                {!imageLoaded && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                        <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-                    </div>
-                )}
-
-                {/* Status badges - Hidden on hover */}
-                <div className={`absolute top-3 left-3 transition-all duration-300 ${isHovered ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
-                    {statusChecks.isListed && (
-                        <div className={`bg-green-500/90 backdrop-blur-sm text-white ${isSmall ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-full font-medium flex items-center shadow-lg`}>
-                            <Tag className={`${isSmall ? 'w-2 h-2 mr-1' : 'w-3 h-3 mr-1.5'}`} />
-                            Listed
+                    {!imageLoaded && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
                         </div>
                     )}
-                    {statusChecks.isAuctioned && (
-                        <div className={`${statusChecks.isAuctionEnded ? 'bg-red-500/90' : 'bg-orange-500/90'} backdrop-blur-sm text-white ${isSmall ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} font-medium rounded-full flex items-center shadow-lg ${statusChecks.isListed ? 'mt-2' : ''}`}>
-                            <Clock className={`${isSmall ? 'w-2 h-2 mr-1' : 'w-3 h-3 mr-1.5'}`} />
-                            {statusChecks.isAuctionEnded ? 'Ended' : 'Auction'}
-                        </div>
-                    )}
-                </div>
 
-                {/* Gradient overlay on hover */}
-                <div className={`absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent transition-all duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}></div>
-
-                {/* Heart button - top right */}
-                <div className={`absolute top-3 right-3 transition-all duration-300 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}>
-                    <button className={`${isSmall ? 'p-1.5' : 'p-2.5'} bg-black/30 backdrop-blur-md rounded-full hover:bg-black/50 transition-all duration-200 border border-white/10`}>
-                        <Heart className={`${isSmall ? 'w-3 h-3' : 'w-4 h-4'} text-white hover:text-red-400 transition-colors`} />
-                    </button>
-                </div>
-
-                {/* Hover content */}
-                <div className={`absolute inset-0 flex flex-col justify-between ${isSmall ? 'p-2' : 'p-4'} transition-all duration-300 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                    
-                    {/* Title section */}
-                    <div className="flex-1 flex flex-col justify-end">
-                        <div className="text-left">
-                            <h3 className={`text-white font-bold ${isSmall ? 'text-sm' : isWide ? 'text-lg' : 'text-xl'} leading-tight ${isSmall ? 'mb-1' : 'mb-2'} drop-shadow-lg capitalize`}
-                                style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
-                                {nftDisplayData.name}
-                            </h3>
-                            {nft.tokenId && (
-                                <p className={`text-gray-300 ${isSmall ? 'text-xs' : 'text-sm'} opacity-90 drop-shadow-md`}>
-                                    #{nft.tokenId.toString()}
-                                </p>
-                            )}
-                        </div>
+                    {/* Status badges - Hidden on hover */}
+                    <div className={`absolute top-3 left-3 transition-all duration-300 ${isHovered ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
+                        {statusChecks.isListed && (
+                            <div className={`bg-green-500/90 backdrop-blur-sm text-white ${isSmall ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-full font-medium flex items-center shadow-lg`}>
+                                <Tag className={`${isSmall ? 'w-2 h-2 mr-1' : 'w-3 h-3 mr-1.5'}`} />
+                                Listed
+                            </div>
+                        )}
+                        {statusChecks.isAuctioned && (
+                            <div className={`${statusChecks.isAuctionEnded ? 'bg-red-500/90' : 'bg-orange-500/90'} backdrop-blur-sm text-white ${isSmall ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} font-medium rounded-full flex items-center shadow-lg ${statusChecks.isListed ? 'mt-2' : ''}`}>
+                                <Clock className={`${isSmall ? 'w-2 h-2 mr-1' : 'w-3 h-3 mr-1.5'}`} />
+                                {statusChecks.isAuctionEnded ? 'Ended' : 'Auction'}
+                            </div>
+                        )}
                     </div>
 
-                    {/* Bottom content */}
-                    <div className={`${isSmall ? 'space-y-1' : 'space-y-3'}`}>
-                        {/* Price display */}
-                        <div className={`backdrop-blur-lg bg-black/60 ${isSmall ? 'rounded-lg p-2' : 'rounded-2xl p-4'} border border-white/10`}>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className={`text-gray-300 ${isSmall ? 'text-xs mb-0' : 'text-xs mb-1'} uppercase tracking-wide`}>
-                                        {priceDisplay.label}
+                    {/* Gradient overlay on hover */}
+                    <div className={`absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent transition-all duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}></div>
+
+                    {/* Heart button - top right */}
+                    <div className={`absolute top-3 right-3 transition-all duration-300 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}>
+                        <button className={`${isSmall ? 'p-1.5' : 'p-2.5'} bg-black/30 backdrop-blur-md rounded-full hover:bg-black/50 transition-all duration-200 border border-white/10`}>
+                            <Heart className={`${isSmall ? 'w-3 h-3' : 'w-4 h-4'} text-white hover:text-red-400 transition-colors`} />
+                        </button>
+                    </div>
+
+                    {/* Hover content */}
+                    <div className={`absolute inset-0 flex flex-col justify-between ${isSmall ? 'p-2' : 'p-4'} transition-all duration-300 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                        
+                        {/* Title section */}
+                        <div className="flex-1 flex flex-col justify-end">
+                            <div className="text-left">
+                                <h3 className={`text-white font-bold ${isSmall ? 'text-sm' : isWide ? 'text-lg' : 'text-xl'} leading-tight ${isSmall ? 'mb-1' : 'mb-2'} drop-shadow-lg capitalize`}
+                                    style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+                                    {nftDisplayData.name}
+                                </h3>
+                                {nft.tokenId && (
+                                    <p className={`text-gray-300 ${isSmall ? 'text-xs' : 'text-sm'} opacity-90 drop-shadow-md`}>
+                                        #{nft.tokenId.toString()}
                                     </p>
-                                    <div className="flex items-center text-white">
-                                        <SiEthereum className={`${isSmall ? 'h-3 w-3 mr-1' : 'h-5 w-5 mr-2'} text-blue-400`} />
-                                        <span className={`font-bold ${isSmall ? 'text-sm' : 'text-lg'}`}>
-                                            {priceDisplay.value}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Time remaining - only for active auctions */}
-                                {statusChecks.isAuctioned && timeRemaining && !statusChecks.isAuctionEnded && !isSmall && (
-                                    <div className="text-right">
-                                        <p className="text-gray-300 text-xs uppercase tracking-wide">
-                                            Ends in
-                                        </p>
-                                        <p className="text-orange-400 text-sm font-bold">
-                                            {timeRemaining}
-                                        </p>
-                                    </div>
                                 )}
                             </div>
                         </div>
 
-                        {/* Action buttons - Size responsive */}
-                        <div className={`flex ${isSmall ? 'space-x-1' : 'space-x-2'}`}>
-                            {(statusChecks.canBuy || statusChecks.canBid || (statusChecks.isAuctionEnded && showOwnerActions)) && (
-                                <button
-                                    onClick={handleAction}
-                                    disabled={txLoading}
-                                    className={`${isSmall ? 'py-1.5 px-2 text-xs' : 'py-2.5 px-3 text-sm'} rounded-lg font-semibold transition-all duration-200 shadow-lg ${
-                                        statusChecks.canBuy
-                                            ? 'bg-green-500 hover:bg-green-600 text-white'
-                                            : statusChecks.canBid
-                                            ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                                            : 'bg-blue-500 hover:bg-blue-600 text-white'
-                                    } disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center backdrop-blur-sm`}
-                                >
-                                    {!isSmall && getActionIcon()}
-                                    <span className={`${!isSmall && 'ml-2'}`}>{getActionText()}</span>
-                                </button>
+                        {/* Bottom content */}
+                        <div className={`${isSmall ? 'space-y-1' : 'space-y-3'}`}>
+                            {/* Price display */}
+                            <div className={`backdrop-blur-lg bg-black/60 ${isSmall ? 'rounded-lg p-2' : 'rounded-2xl p-4'} border border-white/10`}>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className={`text-gray-300 ${isSmall ? 'text-xs mb-0' : 'text-xs mb-1'} uppercase tracking-wide`}>
+                                            {priceDisplay.label}
+                                        </p>
+                                        <div className="flex items-center text-white">
+                                            <SiEthereum className={`${isSmall ? 'h-3 w-3 mr-1' : 'h-5 w-5 mr-2'} text-blue-400`} />
+                                            <span className={`font-bold ${isSmall ? 'text-sm' : 'text-lg'}`}>
+                                                {priceDisplay.value}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Time remaining - only for active auctions */}
+                                    {statusChecks.isAuctioned && timeRemaining && !statusChecks.isAuctionEnded && !isSmall && (
+                                        <div className="text-right">
+                                            <p className="text-gray-300 text-xs uppercase tracking-wide">
+                                                Ends in
+                                            </p>
+                                            <p className="text-orange-400 text-sm font-bold">
+                                                {timeRemaining}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Action buttons - Size responsive */}
+                            <div className={`flex ${isSmall ? 'space-x-1' : 'space-x-2'}`}>
+                                {(statusChecks.canBuy || statusChecks.canBid || (statusChecks.isAuctionEnded && showOwnerActions)) && (
+                                    <button
+                                        onClick={handleAction}
+                                        disabled={txLoading}
+                                        className={`${isSmall ? 'py-1.5 px-2 text-xs' : 'py-2.5 px-3 text-sm'} rounded-lg font-semibold transition-all duration-200 shadow-lg ${
+                                            statusChecks.canBuy
+                                                ? 'bg-green-500 hover:bg-green-600 text-white'
+                                                : statusChecks.canBid
+                                                ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                                                : 'bg-blue-500 hover:bg-blue-600 text-white'
+                                        } disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center backdrop-blur-sm`}
+                                    >
+                                        {!isSmall && getActionIcon()}
+                                        <span className={`${!isSmall && 'ml-2'}`}>{getActionText()}</span>
+                                    </button>
+                                )}
+
+                                {/* Owner actions - Size responsive */}
+                                {showOwnerActions && statusChecks.isOwner && (statusChecks.isListed || statusChecks.isAuctioned) && (
+                                    <>
+                                        {statusChecks.isListed && (
+                                            <button
+                                                onClick={handleCancelListing}
+                                                disabled={txLoading}
+                                                className={`${isSmall ? 'px-2 py-1.5 text-xs' : 'px-3 py-2.5 text-sm'} bg-red-500/80 hover:bg-red-500 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm shadow-lg`}
+                                            >
+                                                {txLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Cancel"}
+                                            </button>
+                                        )}
+                                        {statusChecks.isAuctioned && !statusChecks.isAuctionEnded && (
+                                            <button
+                                                onClick={handleCancelAuction}
+                                                disabled={txLoading}
+                                                className={`${isSmall ? 'px-2 py-1.5 text-xs' : 'px-3 py-2.5 text-sm'} bg-red-500/80 hover:bg-red-500 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm shadow-lg`}
+                                            >
+                                                {txLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Cancel"}
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Status messages - Size responsive */}
+                            {showOwnerActions && statusChecks.isOwner && (statusChecks.isListed || statusChecks.isAuctioned) && (
+                                <p className={`${isSmall ? 'text-xs' : 'text-xs'} text-center text-gray-400 bg-black/40 rounded-lg ${isSmall ? 'py-0.5 px-1' : 'py-1 px-2'} backdrop-blur-sm`}>
+                                    You own this NFT
+                                </p>
                             )}
 
-                            {/* Owner actions - Size responsive */}
-                            {showOwnerActions && statusChecks.isOwner && (statusChecks.isListed || statusChecks.isAuctioned) && (
-                                <>
-                                    {statusChecks.isListed && (
-                                        <button
-                                            onClick={handleCancelListing}
-                                            disabled={txLoading}
-                                            className={`${isSmall ? 'px-2 py-1.5 text-xs' : 'px-3 py-2.5 text-sm'} bg-red-500/80 hover:bg-red-500 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm shadow-lg`}
-                                        >
-                                            {txLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Cancel"}
-                                        </button>
-                                    )}
-                                    {statusChecks.isAuctioned && !statusChecks.isAuctionEnded && (
-                                        <button
-                                            onClick={handleCancelAuction}
-                                            disabled={txLoading}
-                                            className={`${isSmall ? 'px-2 py-1.5 text-xs' : 'px-3 py-2.5 text-sm'} bg-red-500/80 hover:bg-red-500 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm shadow-lg`}
-                                        >
-                                            {txLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Cancel"}
-                                        </button>
-                                    )}
-                                </>
+                            {!statusChecks.isOwner && !statusChecks.isListed && !statusChecks.isAuctioned && (
+                                <p className={`${isSmall ? 'text-xs' : 'text-xs'} text-center text-gray-400 bg-black/40 rounded-lg ${isSmall ? 'py-0.5 px-1' : 'py-1 px-2'} backdrop-blur-sm`}>
+                                    Not for sale
+                                </p>
+                            )}
+
+                            {/* Error display */}
+                            {txError && (
+                                <p className={`${isSmall ? 'text-xs' : 'text-xs'} text-center text-red-400 bg-red-900/40 rounded-lg ${isSmall ? 'py-0.5 px-1' : 'py-1 px-2'} backdrop-blur-sm`}>
+                                    {txError}
+                                </p>
                             )}
                         </div>
-
-                        {/* Status messages - Size responsive */}
-                        {showOwnerActions && statusChecks.isOwner && (statusChecks.isListed || statusChecks.isAuctioned) && (
-                            <p className={`${isSmall ? 'text-xs' : 'text-xs'} text-center text-gray-400 bg-black/40 rounded-lg ${isSmall ? 'py-0.5 px-1' : 'py-1 px-2'} backdrop-blur-sm`}>
-                                You own this NFT
-                            </p>
-                        )}
-
-                        {!statusChecks.isOwner && !statusChecks.isListed && !statusChecks.isAuctioned && (
-                            <p className={`${isSmall ? 'text-xs' : 'text-xs'} text-center text-gray-400 bg-black/40 rounded-lg ${isSmall ? 'py-0.5 px-1' : 'py-1 px-2'} backdrop-blur-sm`}>
-                                Not for sale
-                            </p>
-                        )}
-
-                        {/* Error display */}
-                        {txError && (
-                            <p className={`${isSmall ? 'text-xs' : 'text-xs'} text-center text-red-400 bg-red-900/40 rounded-lg ${isSmall ? 'py-0.5 px-1' : 'py-1 px-2'} backdrop-blur-sm`}>
-                                {txError}
-                            </p>
-                        )}
                     </div>
                 </div>
             </div>
-        </div>
+
+            {/* Buy Confirmation Modal */}
+            <BuyConfirmationModal
+                isOpen={showBuyConfirmationModal}
+                onClose={handleCloseBuyConfirmation}
+                onConfirm={handleConfirmPurchase}
+                nftName={nftDisplayData.name}
+                price={buyButtonPrice}
+                loading={txLoading}
+            />
+        </>
     );
 };
 
