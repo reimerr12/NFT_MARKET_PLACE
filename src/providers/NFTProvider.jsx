@@ -1,5 +1,5 @@
 import { useState , useCallback,useContext ,useRef,useEffect} from "react";
-import { ethers } from "ethers";
+import { BigNumber, ethers } from "ethers";
 import { useWeb3 } from "./Web3Provider";
 import pinataService, { uploadFile } from "./PinataConnection";
 import { NFT_MARKETPLACE_ABI,NFT_MARKETPLACE_ADDRESS} from "../utils/marketplaceContract";
@@ -102,6 +102,10 @@ const useNFT = ()=>{
             setLoading(true);
             setError(null);
 
+            if (!currentAccount || !currentSigner) {
+                throw new Error("Please connect your wallet");
+            }
+
             if (priceInWei.isZero() || priceInWei.lt(ethers.constants.Zero)) {
                 throw new Error("Price must be positive");
             }
@@ -146,35 +150,81 @@ const useNFT = ()=>{
 
             const {marketPLaceContract} = getContracts();
 
+            let listing;
+            let retryCount = 0;
+            const maxRetries = 3;
             
-            const listing = await marketPLaceContract.listings(tokenId);
-            if(!listing.isActive || listing.isAuctioned){
-                throw new Error("NFT is not available for direct purchase");
+            while (retryCount < maxRetries) {
+                try {
+                    listing = await marketPLaceContract.listings(tokenId, {
+                        blockTag: 'latest'
+                    });
+                    break;
+                } catch (err) {
+                    retryCount++;
+                    if (retryCount >= maxRetries) throw err;
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+            // Enhanced validation
+            if (!listing.isActive) {
+                throw new Error("NFT is not listed for sale");
+            }
+            
+            if (listing.isAuctioned) {
+                throw new Error("NFT is currently in auction, cannot be purchased directly");
+            }
+            
+            if (listing.price.isZero()) {
+                throw new Error("Invalid listing price");
+            }
+            
+            const balance = await marketPLaceContract.provider.getBalance(account);
+            if (balance.lt(listing.price)) {
+                throw new Error(`Insufficient balance. Need ${ethers.utils.formatEther(listing.price)} ETH`);
+            }
+            
+            if (listing.seller.toLowerCase() === account.toLowerCase()) {
+                throw new Error("Cannot buy your own NFT");
             }
 
-            //buying the nft
-            console.log("buying the nft");
-            const tx = await marketPLaceContract.buyNow(tokenId,{
-                value:listing.price
+            // gas estimation
+            let gasEstimate;
+            try {
+                gasEstimate = await marketPLaceContract.estimateGas.buyNow(tokenId, {
+                    value: listing.price
+                });
+                console.log(`Estimated gas: ${gasEstimate.toString()}`);
+            } catch (gasError) {
+                console.error("Gas estimation failed:", gasError);
+                throw new Error("Transaction would fail. Please check NFT status and your balance.");
+            }
+
+            console.log(`Buying NFT ${tokenId} for ${ethers.utils.formatEther(listing.price)} ETH...`);
+            const tx = await marketPLaceContract.buyNow(tokenId, {
+                value: listing.price,
+                gasLimit: gasEstimate.mul(120).div(100)
             });
 
+            console.log(`Transaction submitted: ${tx.hash}`);
             const receipt = await tx.wait();
+            console.log(`Transaction confirmed: ${receipt.transactionHash}`);
 
-            return{
-                success:true,
+            return {
+                success: true,
                 tokenId,
-                transactionHash:receipt.transactionHash,
-                price:ethers.utils.formatEther(listing.price),
-            }
+                transactionHash: receipt.transactionHash,
+                price: ethers.utils.formatEther(listing.price),
+            };
 
         } catch (error) {
-            const errorMessage = error.message || "failed to buy nft";
+            console.error("Buy NFT error details:", error);
             setError(errorMessage);
             throw new Error(errorMessage);
         } finally {
             setLoading(false);
         }
-    },[getContracts]);
+    },[getContracts, account]);
 
     //create auction
     const createAuction = useCallback(async(tokenId,reservedPriceInWei,durationInHours)=>{
@@ -229,14 +279,24 @@ const useNFT = ()=>{
     },[]);
 
     //place bid 
-    const placeBid = useCallback(async(tokenId,bidAmountInWei)=>{
+    const placeBid = useCallback(async(tokenId,bidAmount)=>{
         if (!account) throw new Error("Please connect your wallet");
         try {
             setLoading(true);
             setError(null);
 
-            if (bidAmountInWei.isZero() || bidAmountInWei.lt(ethers.constants.Zero)) {
-                throw new Error("Price must be positive");
+            let bidAmountInWei;
+
+            if(typeof bidAmount === 'string'){
+                bidAmountInWei = ethers.utils.parseEther(bidAmount);
+            }else if(BigNumber.isBigNumber(bidAmount)){
+                bidAmountInWei = bidAmount
+            }else{
+                throw new Error("Invalid bid amount format");
+            }
+
+            if(bidAmountInWei.isZero() || bidAmountInWei.lt(ethers.constants.Zero)){
+                throw new Error("Bid amount must be positive");
             }
 
             const {marketPLaceContract} = getContracts();
@@ -249,6 +309,7 @@ const useNFT = ()=>{
             const receipt = await tx.wait();
 
             const bidAmountInEth = ethers.utils.formatEther(bidAmountInWei);
+
             return{
                 success:true,
                 tokenId,
@@ -443,29 +504,6 @@ const useNFT = ()=>{
             throw new Error(errorMessage);
         }
     }, [getReadOnlyContracts]);
-    /* const getActiveListings = useCallback(async(refresh = false) =>{
-        try {
-            setError(null);
-
-            const {marketPLaceContract} = getReadOnlyContracts();
-
-            if(refresh){
-                const freshProvider = new ethers.providers.Web3Provider(window.ethereum);
-                const freshContract = new ethers.Contract(NFT_MARKETPLACE_ADDRESS,NFT_MARKETPLACE_ABI,freshProvider);
-                const activeListings = await freshContract.getActiveListings();
-                return activeListings.map(tokenId => tokenId.toString());
-            }
-
-            console.log('getting active listings');
-            const activeListings = await marketPLaceContract.getActiveListings();
-
-            return activeListings.map(tokenId => tokenId.toString());
-        } catch (error) {
-            const errorMessage = error.message || 'failed to get active listings';
-            setError(errorMessage);
-            throw new Error(errorMessage);
-        }
-    },[getReadOnlyContracts]); */
 
     //get active auctions
     const getActiveAuctions = useCallback(async(refresh = false) => {
@@ -535,30 +573,6 @@ const useNFT = ()=>{
             throw new Error(errorMessage);
         }
     }, [getReadOnlyContracts]);
-
-    /* const getActiveAuctions = useCallback(async(refresh = false)=>{
-        try {
-            setError(null);
-
-            const {marketPLaceContract} = getReadOnlyContracts();
-
-            if(refresh){
-                const freshProvider = new ethers.providers.Web3Provider(window.ethereum);
-                const freshContract = new ethers.Contract(NFT_MARKETPLACE_ADDRESS,NFT_MARKETPLACE_ABI,freshProvider);
-                const activeAuctions = await freshContract.getActiveAuctions();
-                return activeAuctions.map(tokenId => tokenId.toString());
-            }
-
-            console.log('getting active auctions');
-            const activeAuctions  = await marketPLaceContract.getActiveAuctions();
-
-            return activeAuctions.map(tokenId => tokenId.toString());
-        } catch (error) {
-            const errorMessage = error.message || 'failed to get active auctions';
-            setError(errorMessage);
-            throw new Error(errorMessage);
-        }
-    },[getReadOnlyContracts]); */
 
     //get info about the nfts
     const getNftInfo = useCallback(async(tokenId, refresh = false) => {

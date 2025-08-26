@@ -4,6 +4,8 @@ import { ShoppingCart, Heart, Eye, Loader2, Tag, Clock, Gavel } from "lucide-rea
 import { BigNumber } from "ethers";
 import { formatEther } from "ethers/lib/utils";
 import BuyConfirmationModal from "./BuyConfirmationModal";
+import PlaceBidModal from "./PlaceBidModal";
+import ConfirmCancellationModal from "./ConfirmCancellationModal";
 
 const MosaicNFTCard = ({
     nft,
@@ -23,6 +25,9 @@ const MosaicNFTCard = ({
     const [isHovered, setIsHovered] = useState(false);
     const [imageLoaded, setImageLoaded] = useState(false);
     const [showBuyConfirmationModal, setShowBuyConfirmationModal] = useState(false);
+    const [showPlaceBidModal, setShowPlaceBidModal] = useState(false);
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [cancelType, setCancelType] = useState(null); // 'listing' or 'auction'
 
     const nftDisplayData = useMemo(() => {
         const metadata = nft.metadata || {};
@@ -131,6 +136,14 @@ const MosaicNFTCard = ({
         return '0';
     }, [statusChecks.isListed, info.price]);
 
+    // Current highest bid for PlaceBidModal
+    const currentHighestBid = useMemo(() => {
+        if (statusChecks.isAuctioned && info.highestBid) {
+            return info.highestBid;
+        }
+        return null;
+    }, [statusChecks.isAuctioned, info.highestBid]);
+
     // Image source with fallback
     const imageSrc = useMemo(() => {
         return nftDisplayData.image || `https://via.placeholder.com/400x400?text=NFT+${nft.tokenId}`;
@@ -163,6 +176,18 @@ const MosaicNFTCard = ({
     // Modal handlers
     const handleOpenBuyConfirmation = useCallback(() => setShowBuyConfirmationModal(true), []);
     const handleCloseBuyConfirmation = useCallback(() => setShowBuyConfirmationModal(false), []);
+    const handleOpenPlaceBid = useCallback(() => setShowPlaceBidModal(true), []);
+    const handleClosePlaceBid = useCallback(() => setShowPlaceBidModal(false), []);
+    
+    const handleOpenCancelModal = useCallback((type) => {
+        setCancelType(type);
+        setShowCancelModal(true);
+    }, []);
+    
+    const handleCloseCancelModal = useCallback(() => {
+        setShowCancelModal(false);
+        setCancelType(null);
+    }, []);
 
     // Handle confirm purchase
     const handleConfirmPurchase = useCallback(() => {
@@ -176,60 +201,25 @@ const MosaicNFTCard = ({
         }
     }, [nft.tokenId, onBuyNFT]);
 
-    // Validate bid input
-    const validateBidAmount = useCallback((bidAmount) => {
-        if (!bidAmount || typeof bidAmount !== 'string') {
-            return { isValid: false, error: "Bid amount is required" };
-        }
-
-        const trimmedAmount = bidAmount.trim();
-        
-        if (trimmedAmount === '' || trimmedAmount === '0') {
-            return { isValid: false, error: "Please enter a bid amount" };
-        }
-
-        // Check if it's a valid number
-        const numericValue = parseFloat(trimmedAmount);
-        if (isNaN(numericValue)) {
-            return { isValid: false, error: "Please enter a valid number" };
-        }
-
-        if (numericValue <= 0) {
-            return { isValid: false, error: "Bid amount must be greater than 0" };
-        }
-
-        // Check if it has too many decimal places (more than 18)
-        const decimalPart = trimmedAmount.split('.')[1];
-        if (decimalPart && decimalPart.length > 18) {
-            return { isValid: false, error: "Too many decimal places (max 18)" };
-        }
-
-        // Check if bid is higher than current bid/reserve price
+    // Handle place bid with modal
+    const handlePlaceBidWithModal = useCallback(async (tokenId, bidAmountInWei) => {
         try {
-            if (statusChecks.isAuctioned) {
-                let minBid = 0;
-                
-                if (info.highestBid && !BigNumber.from(info.highestBid).isZero()) {
-                    minBid = parseFloat(formatEther(BigNumber.from(info.highestBid)));
-                } else if (info.reservedPrice && !BigNumber.from(info.reservedPrice).isZero()) {
-                    minBid = parseFloat(formatEther(BigNumber.from(info.reservedPrice)));
+            if (typeof onPlaceBid === 'function') {
+                await onPlaceBid(tokenId, bidAmountInWei);
+                // Optionally reload NFT data after successful bid
+                if (typeof loadNFTData === 'function') {
+                    await loadNFTData();
                 }
-
-                if (numericValue <= minBid) {
-                    return { 
-                        isValid: false, 
-                        error: `Bid must be higher than ${minBid.toFixed(4)} ETH` 
-                    };
-                }
+            } else {
+                throw new Error("Place bid function is not available");
             }
         } catch (error) {
-            console.error("Error validating bid against current price:", error);
+            console.error('Place bid error:', error);
+            throw error; // Re-throw to let the modal handle the error display
         }
+    }, [onPlaceBid, loadNFTData]);
 
-        return { isValid: true, value: trimmedAmount };
-    }, [statusChecks.isAuctioned, info.highestBid, info.reservedPrice]);
-
-    // Action handlers with validation
+    // Action handlers
     const handleAction = useCallback(async () => {
         if (txLoading) {
             console.log("Transaction is already loading, ignoring action.");
@@ -241,28 +231,8 @@ const MosaicNFTCard = ({
                 console.log("Opening buy confirmation modal for NFT:", nft.tokenId);
                 handleOpenBuyConfirmation();
             } else if (statusChecks.canBid && !statusChecks.isAuctionEnded && typeof onPlaceBid === 'function') {
-                console.log("Attempting to place a bid on NFT:", nft.tokenId);
-                const bidAmount = prompt("Enter Bid Amount In ETH:");
-                
-                // Handle user cancellation
-                if (bidAmount === null) {
-                    return;
-                }
-
-                // Validate the bid amount
-                const validation = validateBidAmount(bidAmount);
-                
-                if (!validation.isValid) {
-                    alert(`Invalid bid: ${validation.error}`);
-                    return;
-                }
-
-                try {
-                    await onPlaceBid(nft.tokenId, validation.value);
-                } catch (error) {
-                    console.error('Place bid error:', error);
-                    alert(`Bid failed: ${error.message || 'Unknown error occurred'}`);
-                }
+                console.log("Opening place bid modal for NFT:", nft.tokenId);
+                handleOpenPlaceBid();
             } else if (statusChecks.isAuctionEnded && showOwnerActions && typeof onFinalizeAuction === 'function') {
                 console.log("Attempting to finalize auction for NFT:", nft.tokenId);
                 if (window.confirm("Are you sure you want to finalize this auction?")) {
@@ -286,41 +256,46 @@ const MosaicNFTCard = ({
         onPlaceBid,
         onFinalizeAuction,
         nft.tokenId,
-        validateBidAmount,
-        handleOpenBuyConfirmation
+        handleOpenBuyConfirmation,
+        handleOpenPlaceBid
     ]);
 
     // Cancel listing
     const handleCancelListing = useCallback(async () => {
         if (txLoading || typeof onCancelListing !== 'function') return;
 
-        if (!window.confirm("Are you sure you want to cancel this listing?")) {
-            return;
-        }
-
-        try {
-            await onCancelListing(nft.tokenId);
-        } catch (error) {
-            console.error('Cancel listing failed:', error);
-            alert(`Cancel listing failed: ${error.message || 'Unknown error occurred'}`);
-        }
-    }, [txLoading, nft.tokenId, onCancelListing]);
+        handleOpenCancelModal('listing');
+    }, [txLoading, handleOpenCancelModal]);
 
     // Cancel auction
     const handleCancelAuction = useCallback(async () => {
         if (txLoading || typeof onCancelAuction !== 'function') return;
 
-        if (!window.confirm("Are you sure you want to cancel this auction?")) {
-            return;
-        }
+        handleOpenCancelModal('auction');
+    }, [txLoading, handleOpenCancelModal]);
 
+    // Handle confirmed cancellation
+    const handleConfirmCancellation = useCallback(async () => {
         try {
-            await onCancelAuction(nft.tokenId);
+            if (cancelType === 'listing' && typeof onCancelListing === 'function') {
+                await onCancelListing(nft.tokenId);
+            } else if (cancelType === 'auction' && typeof onCancelAuction === 'function') {
+                await onCancelAuction(nft.tokenId);
+            }
+            
+            // Close modal on success
+            handleCloseCancelModal();
+            
+            // Optionally reload NFT data
+            if (typeof loadNFTData === 'function') {
+                await loadNFTData();
+            }
         } catch (error) {
-            console.error('Cancel auction failed:', error);
-            alert(`Cancel auction failed: ${error.message || 'Unknown error occurred'}`);
+            console.error(`Cancel ${cancelType} failed:`, error);
+            // Don't close modal on error, let user try again or close manually
+            throw error; // Re-throw to let the modal handle the error display
         }
-    }, [txLoading, nft.tokenId, onCancelAuction]);
+    }, [cancelType, nft.tokenId, onCancelListing, onCancelAuction, handleCloseCancelModal, loadNFTData]);
 
     const getActionText = useCallback(() => {
         if (txLoading) return 'Processing...';
@@ -546,6 +521,27 @@ const MosaicNFTCard = ({
                 nftName={nftDisplayData.name}
                 price={buyButtonPrice}
                 loading={txLoading}
+            />
+
+            {/* Place Bid Modal */}
+            <PlaceBidModal
+                isOpen={showPlaceBidModal}
+                onClose={handleClosePlaceBid}
+                tokenId={nft.tokenId}
+                onPlaceBid={handlePlaceBidWithModal}
+                currentHighestBid={currentHighestBid}
+                txLoading={txLoading}
+            />
+
+            {/* Confirm Cancellation Modal */}
+            <ConfirmCancellationModal
+                isOpen={showCancelModal}
+                onClose={handleCloseCancelModal}
+                onConfirm={handleConfirmCancellation}
+                tokenId={nft.tokenId}
+                cancellationType={cancelType}
+                nftName={nftDisplayData.name}
+                txLoading={txLoading}
             />
         </>
     );

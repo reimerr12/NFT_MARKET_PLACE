@@ -29,7 +29,6 @@ const PlaceBidModal = ({ isOpen, onClose, tokenId, onPlaceBid, currentHighestBid
         setStatus(null);
         setIsSubmitting(false);
     }, []);
-
  
     const handleClose = useCallback(() => {
         resetForm();
