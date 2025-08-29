@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Wallet, UserCircle, LayoutGrid, ShoppingBag, Settings, LogOut, Search, ChevronDown, Rocket, BarChart
+  Wallet, UserCircle, LayoutGrid, ShoppingBag, LogOut, Home, ChevronDown, Rocket, BarChart
 } from 'lucide-react';
 import {useWeb3} from '../providers/Web3Provider'
 
@@ -17,6 +17,7 @@ const Navbar = () => {
   }, []);
 
   const navLinks = [
+    { name: 'Home' , path:'/', icon: <Home className="w-5 h-5" />},
     { name: 'Explore', path: '/marketplace', icon: <LayoutGrid className="w-5 h-5" /> },
     { name: 'Dashboard', path: '/dashboard', icon: <BarChart className="w-5 h-5" /> },
   ];

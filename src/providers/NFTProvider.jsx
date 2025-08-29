@@ -67,7 +67,6 @@ const useNFT = ()=>{
             const tx = await ImagenftContract.mintNft(uploadResult.metadata.tokenURI,royaltyBps);
             const receipt = await tx.wait();
 
-            //extract nft tokenId from events
            const mintEvent = receipt.logs?.find(log => {
                 try {
                     const parsed = ImagenftContract.interface.parseLog(log);

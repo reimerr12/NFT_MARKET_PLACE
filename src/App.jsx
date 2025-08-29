@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import UserDashboard from './pages/UserDashboard';
 import Marketplace from './pages/Marketplace';
+import HomePage from './pages/HomePage';
 import './App.css'
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
       <Router>
         <Navbar />
         <Routes>
+          <Route path='/' element={<HomePage/>} />
           <Route path='/dashboard' element={< UserDashboard />} />
           <Route path='/marketplace' element={< Marketplace />} />
         </Routes>
