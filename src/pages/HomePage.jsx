@@ -15,7 +15,6 @@ import {
   Activity,
   Layers,
   Crown,
-  Flame,
   Code,
   Lock,
 } from 'lucide-react';
