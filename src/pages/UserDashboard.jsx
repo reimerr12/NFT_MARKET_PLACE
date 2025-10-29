@@ -95,10 +95,9 @@ const UserDashboard = () =>{
                 getActiveAuctions()
             ]);
 
-            // Filter marketplace items to only include user's own listings/auctions
+
             const userMarketplaceTokenIds = [];
             
-            // Check each active listing to see if it belongs to the current user
             for (const tokenId of activeListings) {
                 try {
                     const nftInfo = await getNftInfo(tokenId);
@@ -110,12 +109,11 @@ const UserDashboard = () =>{
                 }
             }
             
-            // Check each active auction to see if it belongs to the current user
             for (const tokenId of activeAuctions) {
                 try {
                     const nftInfo = await getNftInfo(tokenId);
                     if (nftInfo.owner && nftInfo.owner.toLowerCase() === account.toLowerCase()) {
-                        // Avoid duplicates if an NFT is both listed and auctioned
+
                         if (!userMarketplaceTokenIds.includes(tokenId)) {
                             userMarketplaceTokenIds.push(tokenId);
                         }
@@ -132,7 +130,6 @@ const UserDashboard = () =>{
                 marketplace:userMarketplaceTokenIds.length
             });
 
-            //load metadata in smaller batches for smoother user experience
             const loadNftBatch = async(tokenIds)=>{
                 if(tokenIds.length === 0) return [];
 
@@ -182,7 +179,7 @@ const UserDashboard = () =>{
             const[createdWithMetadata,purchasedWithMetadata,marketplaceWithMetadata] = await Promise.all([
                 loadNftBatch(createdTokenIds),
                 loadNftBatch(purchasedTokenIds),
-                loadNftBatch(userMarketplaceTokenIds) // Changed from marketPlaceTokenIds to userMarketplaceTokenIds
+                loadNftBatch(userMarketplaceTokenIds) 
             ]);
 
             setAllNfts({
