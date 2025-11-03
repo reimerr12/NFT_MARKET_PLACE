@@ -49,6 +49,27 @@ const Marketplace = () => {
         setCurrentPage(1);
     }, [searchQuery, sortBy, itemsPerPage, filters]);
 
+    useEffect(() => {
+    const checkNetwork = async () => {
+        if (window.ethereum) {
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            const networkId = await window.ethereum.request({ method: 'net_version' });
+            
+            console.log('Chain ID:', chainId);
+            console.log('Network ID:', networkId);
+            console.log('Sepolia Chain ID should be: 0xaa36a7 or 11155111');
+            
+            if (chainId !== '0xaa36a7') {
+                console.error('NOT ON SEPOLIA! Current chain:', chainId);
+            } else {
+                console.log('Correctly connected to Sepolia');
+            }
+        }
+    };
+    
+    checkNetwork();
+}, []);
+
     // Forced blockchain sync function
     const forceBlockchainSync = useCallback(async () => {
         if (!window.ethereum) return false;
