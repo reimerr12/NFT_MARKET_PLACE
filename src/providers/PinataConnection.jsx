@@ -5,11 +5,10 @@ const PINATA_SECRET_API_KEY = import.meta.env.VITE_PINATA_SECRET_API_KEY;
 const PINATA_JWT = import.meta.env.VITE_PINATA_JWT;
 const PINATA_BASE_URL = 'https://api.pinata.cloud';
 
-// Use your dedicated gateway - IMPORTANT: Replace with your actual gateway subdomain
-// Find it at: https://app.pinata.cloud/gateway
+
 const PINATA_GATEWAY_URL = import.meta.env.VITE_PINATA_GATEWAY_URL || 'https://gateway.pinata.cloud/ipfs';
 
-// Fallback gateways for redundancy
+// Fallback 
 const IPFS_GATEWAYS = [
     PINATA_GATEWAY_URL,
     'https://ipfs.io/ipfs',
@@ -23,7 +22,7 @@ class PinataService {
             throw new Error("Pinata environment variables are required. Please check VITE_PINATA_API_KEY, VITE_PINATA_SECRET_API_KEY, and VITE_PINATA_JWT");
         }
 
-        // Axios instance for API calls
+        
         this.api = axios.create({
             baseURL: PINATA_BASE_URL,
             headers: {
@@ -33,10 +32,10 @@ class PinataService {
             }
         });
 
-        // Request queue and rate limiting
+   
         this.requestQueue = [];
         this.isProcessingQueue = false;
-        this.requestDelay = 500; // 500ms between requests
+        this.requestDelay = 500; 
         this.maxRetries = 3;
         this.metadataCache = new Map();
     }
@@ -53,12 +52,12 @@ class PinataService {
         }
     }
 
-    // Helper: Delay function
+
     delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // Helper: Fetch with fallback gateways and retry logic
+
     async fetchWithFallback(ipfsHash, retryCount = 0) {
         // Check cache first
         const cacheKey = `ipfs://${ipfsHash}`;
@@ -90,15 +89,15 @@ class PinataService {
             } catch (error) {
                 console.warn(`Gateway ${gateway} failed:`, error.message);
                 
-                // If rate limited and we have retries left, wait and try again
+
                 if (error.response?.status === 429 && retryCount < this.maxRetries) {
-                    const waitTime = Math.pow(2, retryCount) * 1000; // Exponential backoff
+                    const waitTime = Math.pow(2, retryCount) * 1000; 
                     console.log(`Rate limited. Waiting ${waitTime}ms before retry...`);
                     await this.delay(waitTime);
                     return this.fetchWithFallback(ipfsHash, retryCount + 1);
                 }
                 
-                // Continue to next gateway
+
                 continue;
             }
         }
@@ -162,7 +161,7 @@ class PinataService {
             
             // Wait between batches (except for last batch)
             if (i + batchSize < ipfsHashes.length) {
-                await this.delay(1000); // 1 second between batches
+                await this.delay(1000);
             }
         }
         
@@ -401,7 +400,7 @@ class PinataService {
     // Convert IPFS URI to gateway URL (use ipfs.io for reliability)
     ipfsToGateway(ipfsUri) {
         const hash = this.extractIPFSHash(ipfsUri);
-        // Use ipfs.io gateway for images to avoid rate limits
+
         return `https://ipfs.io/ipfs/${hash}`;
     }
 }

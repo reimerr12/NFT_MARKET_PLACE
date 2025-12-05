@@ -113,7 +113,7 @@ const Marketplace = () => {
                 await forceBlockchainSync();
             }
 
-            // Step 1: Get active listings and auctions from blockchain
+            //Get active listings and auctions from blockchain
             const [activeListings, activeAuctions] = await Promise.all([
                 getActiveListings(forceSync),
                 getActiveAuctions(forceSync)
